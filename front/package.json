@@ -1,0 +1,42 @@
+{
+  "name": "wb-analytics-front",
+  "version": "1.0.0",
+  "description": "",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vue-tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Qzarov/wf-admin-panel-front.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/Qzarov/wf-admin-panel-front/issues"
+  },
+  "homepage": "https://github.com/Qzarov/wf-admin-panel-front#readme",
+  "dependencies": {
+    "chart.js": "^4.5.1",
+    "pinia": "^3.0.4",
+    "vue": "^3.5.30",
+    "vue-chartjs": "^5.3.3",
+    "vue-router": "^5.0.3"
+  },
+  "devDependencies": {
+    "@pinia/testing": "^1.0.3",
+    "@vitejs/plugin-vue": "^6.0.5",
+    "@vitest/coverage-v8": "^4.1.2",
+    "@vue/test-utils": "^2.4.6",
+    "happy-dom": "^20.8.9",
+    "typescript": "^5.9.3",
+    "vite": "^8.0.0",
+    "vitest": "^4.1.2",
+    "vue-tsc": "^3.2.5"
+  }
+}
