@@ -10,6 +10,7 @@ import settingsRoutes from './routes/settings.js'
 import wbAnalyticsRoutes from './routes/wb-analytics.js'
 import adminSettingsRoutes from './routes/admin-settings.js'
 import serviceLogsRoutes from './routes/service-logs.js'
+import paymentsRoutes from './routes/payments.js'
 import { initWbSchema } from './db/wb.js'
 import { initServiceLogsSchema } from './db/service-logs.js'
 import { initWbCron } from './services/wb-cron.js'
@@ -25,6 +26,7 @@ app.use(express.json())
 app.use('/api/auth', authRoutes)
 app.use('/api/users', auth, admin, usersRoutes)
 app.use('/api/settings', auth, settingsRoutes)
+app.use('/api/payments', paymentsRoutes)
 app.use('/api/wb', auth, wbAnalyticsRoutes)
 app.use('/api/admin/settings', auth, admin, adminSettingsRoutes)
 app.use('/api/admin/logs', auth, admin, serviceLogsRoutes)

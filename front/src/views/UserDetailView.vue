@@ -20,17 +20,9 @@ const editName = ref('')
 const editRole = ref('')
 const editCredits = ref(0)
 const editAdvancedSettings = ref(false)
-const editProducts = ref<Record<string, boolean>>({ articles: true, documents: true, 'prediction-markets': false })
+const editProducts = ref<Record<string, boolean>>({ 'wb-analytics': true })
 const ALL_PRODUCTS = [
-  { id: 'articles', label: 'SEO-статьи' },
-  { id: 'documents', label: 'Анализ документов' },
-  { id: 'reels', label: 'Reels → Telegram' },
-  { id: 'sender', label: 'TG Рассылка' },
-  { id: 'tg-manager', label: 'TG Аккаунты' },
-  { id: 'tg-content', label: 'TG Контент' },
   { id: 'wb-analytics', label: 'WB Аналитика' },
-  { id: 'chat-manager', label: 'ИИ Чат-менеджер' },
-  { id: 'prediction-markets', label: 'Prediction Markets' },
 ]
 const selectedPlanId = ref<number | ''>('')
 const creditsToAdd = ref(0)

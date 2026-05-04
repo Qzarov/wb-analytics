@@ -162,11 +162,6 @@ function fmtDuration(ms: number | null): string {
 
 const SERVICE_LABELS: Record<string, string> = {
   wb: 'WB Аналитика',
-  sender: 'Рассылка',
-  'tg-content': 'TG Контент',
-  reels: 'Reels',
-  'chat-manager': 'Чат-менеджер',
-  'prediction-markets': 'Предикшены',
 }
 
 function serviceLabel(s: string): string { return SERVICE_LABELS[s] || s }
