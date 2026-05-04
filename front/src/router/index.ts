@@ -28,8 +28,6 @@ const router = createRouter({
 
 const showLanding = import.meta.env.VITE_SHOW_LANDING !== 'false'
 
-const PRODUCT_ROUTES: Record<string, string> = { 'wb-analytics': '/wb-analytics' }
-
 export function getDefaultRoute(): string {
   const auth = useAuthStore()
   if (auth.isAdmin) return '/admin'
