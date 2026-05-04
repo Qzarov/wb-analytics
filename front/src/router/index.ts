@@ -1,11 +1,9 @@
 import { createRouter, createWebHistory } from 'vue-router'
-import LandingView from '@/views/LandingView.vue'
-import { useAuthStore } from '@/stores/auth'
 
 const router = createRouter({
   history: createWebHistory(),
   routes: [
-    { path: '/', name: 'landing', component: LandingView },
+    { path: '/', name: 'landing', component: () => import('@/views/LandingView.vue') },
     { path: '/register', name: 'register', component: () => import('@/views/RegisterView.vue'), meta: { guest: true } },
     { path: '/login', name: 'login', component: () => import('@/views/LoginView.vue'), meta: { guest: true } },
     { path: '/profile', name: 'profile', component: () => import('@/views/ProfileView.vue'), meta: { auth: true } },
@@ -24,35 +22,6 @@ const router = createRouter({
       ],
     },
   ],
-})
-
-const showLanding = import.meta.env.VITE_SHOW_LANDING !== 'false'
-
-export function getDefaultRoute(): string {
-  const auth = useAuthStore()
-  if (auth.isAdmin) return '/admin'
-  if (auth.user) {
-    try {
-      const ids = JSON.parse(auth.user.visible_products || '[]') as string[]
-      if (ids.includes('wb-analytics')) return '/wb-analytics'
-    } catch {}
-  }
-  if (showLanding) return '/'
-  return '/profile'
-}
-
-router.beforeEach((to) => {
-  const auth = useAuthStore()
-  if (to.name === 'landing' && !showLanding) return '/login'
-  if (to.meta.auth && !auth.isAuth) return '/login'
-  if (to.meta.admin && !auth.isAdmin) return '/login'
-  if (to.meta.product && auth.isAuth && auth.user) {
-    try {
-      const ids = JSON.parse(auth.user.visible_products || '[]') as string[]
-      if (!ids.includes(to.meta.product as string)) return '/404'
-    } catch {}
-  }
-  if (to.meta.guest && auth.isAuth) return getDefaultRoute()
 })
 
 export default router
