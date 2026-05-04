@@ -19,8 +19,7 @@ async function onSubmit() {
   loading.value = true; error.value = ''
   try {
     await auth.login(email.value, password.value)
-    const { getDefaultRoute } = await import('@/router')
-    router.push(getDefaultRoute())
+    router.push(auth.isAdmin ? '/admin' : '/wb-analytics')
   } catch (e: any) { error.value = e.message || 'Ошибка входа' }
   finally { loading.value = false }
 }

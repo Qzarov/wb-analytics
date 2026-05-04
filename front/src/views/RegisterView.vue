@@ -22,8 +22,7 @@ async function onSubmit() {
   loading.value = true; error.value = ''
   try {
     await auth.register(form.value.name, form.value.email, form.value.password)
-    const { getDefaultRoute } = await import('@/router')
-    router.push(getDefaultRoute())
+    router.push('/wb-analytics')
   } catch (e: any) { error.value = e.message || 'Ошибка регистрации' }
   finally { loading.value = false }
 }
