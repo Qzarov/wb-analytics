@@ -27,7 +27,6 @@ vi.stubGlobal('localStorage', {
 const Stub = defineComponent({ render: () => h('div') })
 
 function makeRouter() {
-  // Recreate the router guards manually since we can't easily import the real one
   const auth = useAuthStore()
 
   const routes: RouteRecordRaw[] = [
@@ -35,8 +34,7 @@ function makeRouter() {
     { path: '/login', name: 'login', component: Stub, meta: { guest: true } },
     { path: '/register', name: 'register', component: Stub, meta: { guest: true } },
     { path: '/profile', name: 'profile', component: Stub, meta: { auth: true } },
-    { path: '/articles', name: 'articles', component: Stub, meta: { auth: true, product: 'articles' } },
-    { path: '/reels', name: 'reels', component: Stub, meta: { auth: true, product: 'reels' } },
+    { path: '/wb-analytics', name: 'wb-analytics', component: Stub, meta: { auth: true, product: 'wb-analytics' } },
     { path: '/404', name: 'not-found', component: Stub },
     {
       path: '/admin',
@@ -69,7 +67,7 @@ function makeRouter() {
 const mockUser = (overrides: Record<string, any> = {}) => ({
   id: 1, name: 'Test', email: 'a@b.com', role: 'user',
   credits: 10, plan_id: null, plan_expires_at: null,
-  advanced_settings: 0, visible_products: '["articles"]',
+  advanced_settings: 0, visible_products: '["wb-analytics"]',
   ...overrides,
 })
 
@@ -113,20 +111,20 @@ describe('router guards', () => {
 
   it('redirects to /404 when product not in visible_products', async () => {
     const auth = useAuthStore()
-    auth.$patch({ token: 'jwt', user: mockUser({ visible_products: '["articles"]' }) })
+    auth.$patch({ token: 'jwt', user: mockUser({ visible_products: '[]' }) })
     const router = makeRouter()
-    await router.push('/reels')
+    await router.push('/wb-analytics')
     await router.isReady()
     expect(router.currentRoute.value.path).toBe('/404')
   })
 
   it('allows access when product is in visible_products', async () => {
     const auth = useAuthStore()
-    auth.$patch({ token: 'jwt', user: mockUser({ visible_products: '["articles","reels"]' }) })
+    auth.$patch({ token: 'jwt', user: mockUser({ visible_products: '["wb-analytics"]' }) })
     const router = makeRouter()
-    await router.push('/reels')
+    await router.push('/wb-analytics')
     await router.isReady()
-    expect(router.currentRoute.value.path).toBe('/reels')
+    expect(router.currentRoute.value.path).toBe('/wb-analytics')
   })
 
   it('redirects authenticated user from /login (guest route) to /', async () => {
