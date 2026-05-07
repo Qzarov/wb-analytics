@@ -3,6 +3,7 @@ import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { api, type User, type Plan } from '@/api'
 import { useAuthStore } from '@/stores/auth'
+import { ArrowLeft, Save, Trash2, Check, AlertCircle, Plus, Minus } from 'lucide-vue-next'
 
 const route = useRoute()
 const router = useRouter()
@@ -94,144 +95,358 @@ function formatDate(iso: string | null | undefined) {
 </script>
 
 <template>
-  <div class="detail-page">
-    <div class="detail-card">
-      <RouterLink to="/admin/users" class="back-link">&larr; Назад к списку</RouterLink>
-      <div v-if="loading" class="loading">Загрузка...</div>
-      <div v-else-if="error && !user" class="form-error">{{ error }}</div>
-      <template v-else-if="user">
-        <h1 class="detail-title">{{ user.name }}</h1>
-        <p class="detail-meta">ID: {{ user.id }} &middot; {{ user.email }} &middot; Регистрация: {{ formatDate(user.created_at) }}</p>
+  <div class="wb-analytics">
+    <!-- Back link -->
+    <RouterLink to="/admin/users" class="frox-back">
+      <ArrowLeft :size="14" />
+      Назад к списку
+    </RouterLink>
 
-        <!-- Basic info -->
-        <div class="section-block">
-          <h2 class="section-label">Основное</h2>
-          <form @submit.prevent="save" class="detail-form">
-            <div class="field"><label>Имя</label><input v-model="editName" type="text" /></div>
-            <div class="field">
-              <label>Роль</label>
-              <select v-model="editRole" :disabled="!auth.isSuperAdmin">
+    <div v-if="loading" class="frox-empty">Загрузка...</div>
+    <div v-else-if="error && !user" class="frox-alert frox-alert-error">{{ error }}</div>
+    <template v-else-if="user">
+      <!-- Header -->
+      <div class="flex items-center justify-between mb-1">
+        <h2 class="font-bold text-[28px] leading-[35px] text-gray-1100 dark:text-gray-dark-1100">{{ user.name }}</h2>
+      </div>
+      <div class="flex items-center text-xs text-gray-500 dark:text-gray-dark-500 gap-x-[11px] mb-7">
+        <span>ID: {{ user.id }}</span>
+        <span class="text-gray-300">&middot;</span>
+        <span>{{ user.email }}</span>
+        <span class="text-gray-300">&middot;</span>
+        <span>Регистрация: {{ formatDate(user.created_at) }}</span>
+      </div>
+
+      <div class="frox-grid">
+        <!-- Left column: Basic info -->
+        <div class="frox-card">
+          <h3 class="frox-card-title">Основное</h3>
+          <form @submit.prevent="save" class="frox-form">
+            <div class="frox-field">
+              <label class="frox-label">Имя</label>
+              <input v-model="editName" type="text" class="frox-input" />
+            </div>
+            <div class="frox-field">
+              <label class="frox-label">Роль</label>
+              <select v-model="editRole" class="frox-input" :disabled="!auth.isSuperAdmin">
                 <option value="user">user</option>
                 <option value="admin">admin</option>
                 <option v-if="auth.isSuperAdmin" value="superadmin">superadmin</option>
               </select>
-              <span v-if="!auth.isSuperAdmin" class="field-hint">Только суперадмин может менять роли</span>
+              <span v-if="!auth.isSuperAdmin" class="frox-hint">Только суперадмин может менять роли</span>
             </div>
-            <div class="field"><label>Кредиты (прямое значение)</label><input v-model.number="editCredits" type="number" min="0" /></div>
-            <div class="field field-toggle">
-              <label class="toggle-label">
-                <span class="toggle-track" :class="{ active: editAdvancedSettings }">
-                  <input type="checkbox" v-model="editAdvancedSettings" class="toggle-input" />
-                  <span class="toggle-thumb"></span>
+            <div class="frox-field">
+              <label class="frox-label">Кредиты (прямое значение)</label>
+              <input v-model.number="editCredits" type="number" min="0" class="frox-input" />
+            </div>
+            <div class="frox-field">
+              <label class="frox-toggle-label">
+                <span class="frox-toggle-track" :class="{ active: editAdvancedSettings }">
+                  <input type="checkbox" v-model="editAdvancedSettings" class="frox-toggle-input" />
+                  <span class="frox-toggle-thumb"></span>
                 </span>
                 Продвинутые настройки
               </label>
-              <span class="field-hint">Открывает доступ к расширенным параметрам генерации (вебхук и др.)</span>
+              <span class="frox-hint">Открывает доступ к расширенным параметрам генерации</span>
             </div>
-            <div class="field">
-              <label>Доступные продукты</label>
-              <div class="products-checkboxes">
-                <label v-for="p in ALL_PRODUCTS" :key="p.id" class="product-check">
-                  <input type="checkbox" v-model="editProducts[p.id]" />
+            <div class="frox-field">
+              <label class="frox-label">Доступные продукты</label>
+              <div class="frox-checkboxes">
+                <label v-for="p in ALL_PRODUCTS" :key="p.id" class="frox-check-item">
+                  <input type="checkbox" v-model="editProducts[p.id]" class="frox-checkbox" />
                   {{ p.label }}
                 </label>
               </div>
             </div>
-            <div v-if="error" class="form-error">{{ error }}</div>
-            <div v-if="success" class="form-success">{{ success }}</div>
-            <div class="actions">
-              <button type="submit" class="btn btn-primary" :disabled="saving">{{ saving ? 'Сохранение...' : 'Сохранить' }}</button>
-              <button v-if="user.role !== 'superadmin'" type="button" class="btn btn-danger" @click="remove">Удалить</button>
+
+            <Transition name="toast">
+              <div v-if="error" class="frox-alert frox-alert-error">{{ error }}</div>
+            </Transition>
+            <Transition name="toast">
+              <div v-if="success" class="frox-alert frox-alert-success">
+                <Check :size="14" /> {{ success }}
+              </div>
+            </Transition>
+
+            <div class="flex gap-3 mt-2">
+              <button type="submit" class="frox-btn frox-btn-brand" :disabled="saving">
+                <Save :size="14" />
+                {{ saving ? 'Сохранение...' : 'Сохранить' }}
+              </button>
+              <button v-if="user.role !== 'superadmin'" type="button" class="frox-btn frox-btn-danger" @click="remove">
+                <Trash2 :size="14" />
+                Удалить
+              </button>
             </div>
           </form>
         </div>
 
-        <!-- Plan -->
-        <div class="section-block">
-          <h2 class="section-label">Тариф</h2>
-          <div v-if="currentPlan" class="plan-info">
-            <div class="plan-info-row">
-              <span class="plan-badge">{{ currentPlan.name }}</span>
-              <span class="plan-expires" :class="{ expired: planExpired }">
-                {{ planExpired ? 'Истёк' : 'до' }} {{ formatDate(user.plan_expires_at) }}
-              </span>
+        <!-- Right column: Plan + Credits -->
+        <div class="frox-right-col">
+          <!-- Plan -->
+          <div class="frox-card">
+            <h3 class="frox-card-title">Тариф</h3>
+            <div v-if="currentPlan" class="frox-plan-block">
+              <div class="flex items-center justify-between mb-2">
+                <span class="frox-badge frox-badge-violet">{{ currentPlan.name }}</span>
+                <span class="frox-plan-expires" :class="{ expired: planExpired }">
+                  {{ planExpired ? 'Истёк' : 'до' }} {{ formatDate(user.plan_expires_at) }}
+                </span>
+              </div>
+              <p class="frox-plan-detail">{{ currentPlan.credits.toLocaleString() }} кредитов &middot; {{ currentPlan.duration_days }} дн. &middot; {{ currentPlan.price === 0 ? 'Бесплатно' : `${currentPlan.price} ₽` }}</p>
+              <button class="frox-link-danger" @click="removeUserPlan">Снять тариф</button>
             </div>
-            <p class="plan-detail">{{ currentPlan.credits.toLocaleString() }} кредитов &middot; {{ currentPlan.duration_days }} дн. &middot; {{ currentPlan.price === 0 ? 'Бесплатно' : `${currentPlan.price} ₽` }}</p>
-            <button class="btn-link-danger" @click="removeUserPlan">Снять тариф</button>
+            <div v-else class="frox-empty-sm">Тариф не назначен</div>
+            <div class="frox-assign-row">
+              <select v-model="selectedPlanId" class="frox-input">
+                <option value="" disabled>Назначить тариф...</option>
+                <option v-for="p in plans" :key="p.id" :value="p.id">{{ p.name }} ({{ p.credits }} кр., {{ p.duration_days }} дн.)</option>
+              </select>
+              <button class="frox-btn frox-btn-brand frox-btn-sm" :disabled="!selectedPlanId" @click="assignSelectedPlan">Назначить</button>
+            </div>
           </div>
-          <div v-else class="plan-none">Тариф не назначен</div>
-          <div class="assign-row">
-            <select v-model="selectedPlanId">
-              <option value="" disabled>Назначить тариф...</option>
-              <option v-for="p in plans" :key="p.id" :value="p.id">{{ p.name }} ({{ p.credits }} кр., {{ p.duration_days }} дн.)</option>
-            </select>
-            <button class="btn btn-primary btn-sm" :disabled="!selectedPlanId" @click="assignSelectedPlan">Назначить</button>
-          </div>
-        </div>
 
-        <!-- Credits -->
-        <div class="section-block">
-          <h2 class="section-label">Кредиты: {{ user.credits.toLocaleString() }}</h2>
-          <div class="credits-row">
-            <input v-model.number="creditsToAdd" type="number" placeholder="Количество" />
-            <button class="btn btn-primary btn-sm" :disabled="!creditsToAdd" @click="doAddCredits">{{ creditsToAdd >= 0 ? 'Начислить' : 'Списать' }}</button>
+          <!-- Credits -->
+          <div class="frox-card">
+            <h3 class="frox-card-title">Кредиты: {{ user.credits.toLocaleString() }}</h3>
+            <div class="frox-assign-row">
+              <input v-model.number="creditsToAdd" type="number" placeholder="Количество" class="frox-input" />
+              <button class="frox-btn frox-btn-brand frox-btn-sm" :disabled="!creditsToAdd" @click="doAddCredits">
+                <Plus v-if="creditsToAdd >= 0" :size="14" />
+                <Minus v-else :size="14" />
+                {{ creditsToAdd >= 0 ? 'Начислить' : 'Списать' }}
+              </button>
+            </div>
+            <span class="frox-hint">Введите отрицательное число для списания</span>
           </div>
-          <span class="field-hint">Введите отрицательное число для списания</span>
         </div>
-      </template>
-    </div>
+      </div>
+    </template>
   </div>
 </template>
 
 <style scoped>
-.detail-page { display: flex; justify-content: center; padding: 2rem 1rem; }
-.detail-card { width: 100%; max-width: 600px; background: var(--bg-surface); border: 1px solid var(--border); border-radius: 16px; padding: 2rem; }
-.back-link { color: var(--accent); font-size: 0.85rem; display: inline-block; margin-bottom: 1.5rem; }
-.detail-title { color: var(--text-primary); font-size: 1.5rem; font-weight: 700; margin-bottom: 0.25rem; }
-.detail-meta { color: var(--text-muted); font-size: 0.85rem; margin-bottom: 1.5rem; }
-.loading { color: var(--text-secondary); text-align: center; padding: 2rem; }
+/* Grid */
+.frox-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+}
+@media (max-width: 900px) {
+  .frox-grid { grid-template-columns: 1fr; }
+}
+.frox-right-col { display: flex; flex-direction: column; gap: 20px; }
 
-.section-block { border-top: 1px solid var(--border); padding-top: 1.25rem; margin-bottom: 1.5rem; }
-.section-label { color: var(--text-secondary); font-size: 0.95rem; font-weight: 600; margin-bottom: 0.75rem; }
+/* Card */
+.frox-card {
+  background: var(--neutral-bg);
+  border: 1px solid var(--neutral-accent);
+  border-radius: 14px;
+  padding: 24px;
+}
+.dark .frox-card {
+  background: var(--dark-neutral-bg);
+  border-color: var(--dark-neutral-border);
+}
+.frox-card-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--gray-1100);
+  margin-bottom: 20px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--neutral-accent);
+}
+.dark .frox-card-title {
+  color: var(--dark-gray-1100);
+  border-color: var(--dark-neutral-border);
+}
 
-.plan-info { background: var(--bg-input); border: 1px solid var(--border-input); border-radius: 10px; padding: 1rem; margin-bottom: 0.75rem; }
-.plan-info-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.4rem; }
-.plan-badge { background: var(--accent-soft); color: var(--accent-text); font-size: 0.85rem; font-weight: 600; padding: 0.2rem 0.6rem; border-radius: 6px; }
-.plan-expires { color: var(--success); font-size: 0.8rem; font-weight: 500; }
-.plan-expires.expired { color: var(--danger); }
-.plan-detail { color: var(--text-secondary); font-size: 0.8rem; margin-bottom: 0.75rem; }
-.plan-none { color: var(--text-muted); font-size: 0.9rem; margin-bottom: 0.75rem; }
-.btn-link-danger { background: none; border: none; color: var(--danger); font-size: 0.8rem; text-decoration: underline; cursor: pointer; padding: 0; }
-.assign-row { display: flex; gap: 0.5rem; }
-.assign-row select { flex: 1; background: var(--bg-input); border: 1px solid var(--border-input); border-radius: 8px; padding: 0.5rem 0.75rem; color: var(--text-body); font-size: 0.85rem; outline: none; }
-.assign-row select:focus { border-color: var(--accent); }
+/* Back link */
+.frox-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--color-brands);
+  font-size: 13px;
+  font-weight: 500;
+  text-decoration: none;
+  margin-bottom: 20px;
+  transition: opacity 0.15s;
+}
+.frox-back:hover { opacity: 0.75; }
 
-.credits-row { display: flex; gap: 0.5rem; margin-bottom: 0.3rem; }
-.credits-row input { flex: 1; background: var(--bg-input); border: 1px solid var(--border-input); border-radius: 8px; padding: 0.5rem 0.75rem; color: var(--text-body); font-size: 0.9rem; outline: none; }
-.credits-row input:focus { border-color: var(--accent); }
+/* Form */
+.frox-form { display: flex; flex-direction: column; gap: 18px; }
+.frox-field { display: flex; flex-direction: column; gap: 6px; }
+.frox-label { font-size: 13px; color: var(--gray-500); font-weight: 500; }
+.dark .frox-label { color: var(--dark-gray-500); }
+.frox-input {
+  background: var(--gray-100);
+  border: 1px solid var(--neutral-accent);
+  border-radius: 10px;
+  padding: 10px 14px;
+  color: var(--gray-1100);
+  font-size: 14px;
+  font-family: inherit;
+  outline: none;
+  transition: border-color 0.15s;
+}
+.dark .frox-input {
+  background: var(--dark-gray-100);
+  border-color: var(--dark-neutral-border);
+  color: var(--dark-gray-1100);
+}
+.frox-input:focus { border-color: var(--color-brands); }
+.frox-hint { color: var(--gray-400); font-size: 12px; }
+.dark .frox-hint { color: var(--dark-gray-400); }
 
-.detail-form { display: flex; flex-direction: column; gap: 1.25rem; }
-.field { display: flex; flex-direction: column; gap: 0.4rem; }
-.field label { font-size: 0.85rem; color: var(--text-secondary); font-weight: 500; }
-.field input, .field select { background: var(--bg-input); border: 1px solid var(--border-input); border-radius: 8px; padding: 0.75rem 1rem; color: var(--text-body); font-size: 0.95rem; outline: none; }
-.field input:focus, .field select:focus { border-color: var(--accent); }
-.form-error { background: var(--danger-soft); border: 1px solid var(--danger-border); color: var(--danger); padding: 0.6rem 1rem; border-radius: 8px; font-size: 0.85rem; }
-.form-success { background: var(--success-soft); border: 1px solid var(--success-border); color: var(--success); padding: 0.6rem 1rem; border-radius: 8px; font-size: 0.85rem; }
-.actions { display: flex; gap: 1rem; }
-.btn-sm { padding: 0.45rem 0.85rem; font-size: 0.85rem; }
-.btn-danger { background: var(--danger-soft); color: var(--danger); border: 1px solid var(--danger-border); padding: 0.75rem 1.5rem; border-radius: 8px; font-size: 1rem; font-weight: 600; }
-.btn-danger:hover { opacity: 0.85; }
-.field-hint { color: var(--text-muted); font-size: 0.75rem; }
+/* Toggle */
+.frox-toggle-label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 14px;
+  color: var(--gray-1100);
+  cursor: pointer;
+  user-select: none;
+}
+.dark .frox-toggle-label { color: var(--dark-gray-1100); }
+.frox-toggle-input { position: absolute; opacity: 0; width: 0; height: 0; }
+.frox-toggle-track {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  width: 40px;
+  height: 22px;
+  border-radius: 11px;
+  background: var(--gray-300);
+  transition: background 0.2s;
+  flex-shrink: 0;
+}
+.dark .frox-toggle-track { background: var(--dark-gray-300); }
+.frox-toggle-track.active { background: var(--color-brands); }
+.frox-toggle-thumb {
+  position: absolute;
+  left: 2px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #fff;
+  transition: transform 0.2s;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.15);
+}
+.frox-toggle-track.active .frox-toggle-thumb { transform: translateX(18px); }
 
-.field-toggle { gap: 0.5rem; }
-.toggle-label { display: flex; align-items: center; gap: 0.6rem; font-size: 0.95rem; color: var(--text-body); cursor: pointer; user-select: none; }
-.toggle-input { position: absolute; opacity: 0; width: 0; height: 0; }
-.toggle-track { position: relative; display: inline-flex; align-items: center; width: 40px; height: 22px; border-radius: 11px; background: var(--border-input); border: 1px solid var(--border); transition: background 0.2s, border-color 0.2s; flex-shrink: 0; }
-.toggle-track.active { background: var(--accent); border-color: var(--accent); }
-.toggle-thumb { position: absolute; left: 2px; width: 16px; height: 16px; border-radius: 50%; background: #fff; transition: transform 0.2s; box-shadow: 0 1px 3px rgba(0,0,0,0.2); }
-.toggle-track.active .toggle-thumb { transform: translateX(18px); }
+/* Checkboxes */
+.frox-checkboxes { display: flex; flex-direction: column; gap: 8px; }
+.frox-check-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--gray-800);
+  font-size: 14px;
+  cursor: pointer;
+}
+.dark .frox-check-item { color: var(--dark-gray-800); }
+.frox-checkbox { width: 16px; height: 16px; accent-color: var(--color-brands); cursor: pointer; }
 
-.products-checkboxes { display: flex; flex-direction: column; gap: 0.5rem; }
-.product-check { display: flex; align-items: center; gap: 0.5rem; color: var(--text-body); font-size: 0.9rem; cursor: pointer; }
-.product-check input { width: 16px; height: 16px; accent-color: var(--accent); cursor: pointer; }
+/* Buttons */
+.frox-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: none;
+  border-radius: 10px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s;
+  text-decoration: none;
+  font-family: inherit;
+  padding: 10px 18px;
+  font-size: 14px;
+}
+.frox-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.frox-btn-sm { padding: 8px 14px; font-size: 13px; }
+.frox-btn-brand { background: var(--color-brands); color: #fff; }
+.frox-btn-brand:hover:not(:disabled) { opacity: 0.9; }
+.frox-btn-danger { background: var(--bg-3); color: var(--red-accent); }
+.frox-btn-danger:hover:not(:disabled) { opacity: 0.85; }
+
+/* Badge */
+.frox-badge {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+}
+.frox-badge-violet { background: var(--bg-10); color: var(--violet-accent); }
+
+/* Plan block */
+.frox-plan-block {
+  background: var(--gray-100);
+  border: 1px solid var(--neutral-accent);
+  border-radius: 10px;
+  padding: 16px;
+  margin-bottom: 16px;
+}
+.dark .frox-plan-block {
+  background: var(--dark-gray-100);
+  border-color: var(--dark-neutral-border);
+}
+.frox-plan-expires {
+  color: var(--green-accent);
+  font-size: 13px;
+  font-weight: 500;
+}
+.frox-plan-expires.expired { color: var(--red-accent); }
+.frox-plan-detail { color: var(--gray-500); font-size: 13px; margin-bottom: 8px; }
+.dark .frox-plan-detail { color: var(--dark-gray-500); }
+.frox-link-danger {
+  background: none;
+  border: none;
+  color: var(--red-accent);
+  font-size: 13px;
+  cursor: pointer;
+  padding: 0;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.frox-link-danger:hover { opacity: 0.75; }
+
+.frox-assign-row { display: flex; gap: 8px; margin-bottom: 8px; }
+.frox-assign-row .frox-input { flex: 1; }
+
+.frox-empty-sm {
+  color: var(--gray-400);
+  font-size: 14px;
+  margin-bottom: 16px;
+}
+.dark .frox-empty-sm { color: var(--dark-gray-400); }
+
+/* Alerts */
+.frox-alert {
+  padding: 10px 16px;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.frox-alert-error { background: var(--bg-3); color: var(--red-accent); }
+.frox-alert-success { background: var(--bg-5); color: var(--green-accent); }
+
+/* Empty */
+.frox-empty {
+  text-align: center;
+  color: var(--gray-400);
+  padding: 32px;
+  font-size: 14px;
+}
+.dark .frox-empty { color: var(--dark-gray-400); }
+
+/* Transitions */
+.toast-enter-active, .toast-leave-active { transition: all 0.3s; }
+.toast-enter-from, .toast-leave-to { opacity: 0; transform: translateY(-4px); }
 </style>

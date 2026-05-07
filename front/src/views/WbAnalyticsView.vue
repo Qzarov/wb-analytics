@@ -1,13 +1,34 @@
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { api, type WbConfig, type WbProduct, type WbAlert } from '@/api'
 import { Line } from 'vue-chartjs'
 import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, Tooltip, Filler } from 'chart.js'
+import {
+  TrendingUp, TrendingDown, ShoppingCart, RotateCcw, Boxes,
+  Star, BellRing, RefreshCw, ArrowUpRight, ArrowDownRight,
+  ChevronLeft, ChevronRight, Pencil, Trash2, Plus, Upload,
+  ExternalLink, Sparkles, Calendar, Clock, Download, Filter,
+  X, Check, AlertTriangle, Info, AlertCircle, Eye, EyeOff,
+} from 'lucide-vue-next'
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Tooltip, Filler)
 
+const route = useRoute()
+const router = useRouter()
+
 type Tab = 'dashboard' | 'reviews' | 'reports' | 'settings'
-const tab = ref<Tab>('dashboard')
+const tab = ref<Tab>((route.query.tab as Tab) || 'dashboard')
+
+watch(() => route.query.tab, (newTab) => {
+  const t = (newTab as Tab) || 'dashboard'
+  if (t !== tab.value) {
+    tab.value = t
+    if (t === 'reviews') loadAllReviews()
+    if (t === 'reports') loadReports()
+    if (t === 'dashboard') { loadAlerts(); loadDashboard() }
+  }
+})
 const loading = ref(false)
 
 // --- Toast ---
@@ -557,144 +578,209 @@ onMounted(async () => {
 </script>
 
 <template>
-  <div class="wb-page">
-    <div class="wb-container">
-      <div class="wb-header">
-        <h1 class="page-title">WB Аналитика</h1>
-      </div>
+  <div class="wb-analytics">
+    <!-- Page header -->
+    <div class="flex items-center justify-between mb-1">
+      <h2 class="font-bold text-[28px] leading-[35px] text-gray-1100 dark:text-gray-dark-1100 capitalize">
+        {{ tab === 'dashboard' ? 'Дашборд' : tab === 'reviews' ? 'Отзывы' : tab === 'reports' ? 'Отчёты' : 'Настройки' }}
+      </h2>
+    </div>
 
-      <!-- Tabs -->
-      <div class="tabs">
-        <button class="tab" :class="{ active: tab === 'dashboard' }" @click="tab = 'dashboard'; loadAlerts(); loadDashboard()">
-          Дашборд
-          <span v-if="unreadAlerts.length" class="tab-badge tab-badge-accent">{{ unreadAlerts.length }}</span>
-        </button>
-        <button class="tab" :class="{ active: tab === 'reviews' }" @click="tab = 'reviews'; loadAllReviews()">
-          Отзывы <span v-if="allReviews.length" class="tab-badge">{{ allReviews.length }}</span>
-        </button>
-        <button class="tab" :class="{ active: tab === 'reports' }" @click="tab = 'reports'; loadReports()">
-          Отчёты <span class="tab-badge">{{ reports.length }}</span>
-        </button>
-        <button class="tab" :class="{ active: tab === 'settings' }" @click="tab = 'settings'">Настройки</button>
-      </div>
+    <!-- Breadcrumb -->
+    <div class="flex items-center text-xs text-gray-500 dark:text-gray-dark-500 gap-x-[11px] mb-7">
+      <span class="capitalize">WB Аналитика</span>
+      <span class="text-gray-300">/</span>
+      <span class="capitalize" style="color: var(--color-brands)">
+        {{ tab === 'dashboard' ? 'Дашборд' : tab === 'reviews' ? 'Отзывы' : tab === 'reports' ? 'Отчёты' : 'Настройки' }}
+      </span>
+    </div>
 
       <!-- Toast -->
       <Transition name="toast">
-        <div v-if="toast" class="toast" :class="'toast-' + toast.type" @click="toast = null">
+        <div v-if="toast" class="frox-toast" :class="'frox-toast-' + toast.type" @click="toast = null">
+          <Check v-if="toast.type === 'success'" :size="16" />
+          <AlertCircle v-else :size="16" />
           {{ toast.text }}
         </div>
       </Transition>
 
       <!-- ==================== TAB: Дашборд ==================== -->
-      <div v-if="tab === 'dashboard'" class="tab-content">
-        <div v-if="loading || dashboardLoading" class="empty">Загрузка...</div>
+      <div v-if="tab === 'dashboard'">
+        <div v-if="loading || dashboardLoading" class="frox-empty">Загрузка...</div>
         <template v-else>
-          <!-- Date range picker -->
-          <div class="section">
-            <div class="date-range-bar">
-              <div class="date-presets">
-                <button class="btn btn-secondary btn-sm" @click="setPreset(1)">Вчера</button>
-                <button class="btn btn-secondary btn-sm" @click="setPreset(7)">7 дней</button>
-                <button class="btn btn-secondary btn-sm" @click="setPreset(14)">14 дней</button>
-                <button class="btn btn-secondary btn-sm" @click="setPreset(30)">30 дней</button>
-              </div>
-              <div class="date-inputs">
-                <input type="date" v-model="dateFrom" @change="onDateChange" :max="dateTo" />
-                <span class="date-sep">&mdash;</span>
-                <input type="date" v-model="dateTo" @change="onDateChange" :min="dateFrom" :max="defaultDate" />
-              </div>
-              <button class="btn btn-secondary btn-sm" @click="runCollect" :disabled="collecting || collectCooldown > 0">
-                {{ collecting ? 'Сбор...' : collectCooldown > 0 ? `Подождите ${collectCooldown}с` : 'Собрать данные' }}
+          <!-- Date range bar -->
+          <div class="frox-card frox-toolbar">
+            <div class="flex items-center gap-2 flex-wrap">
+              <button v-for="preset in [{d:1,l:'Вчера'},{d:7,l:'7 дней'},{d:14,l:'14 дней'},{d:30,l:'30 дней'}]" :key="preset.d"
+                class="frox-btn frox-btn-outline frox-btn-sm" @click="setPreset(preset.d)">
+                {{ preset.l }}
               </button>
-              <button class="btn btn-secondary btn-sm" @click="syncProducts" :disabled="syncing">
-                {{ syncing ? 'Синхронизация...' : 'Синхронизировать товары' }}
+            </div>
+            <div class="flex items-center gap-2 flex-wrap">
+              <div class="flex items-center gap-2">
+                <Calendar :size="14" class="text-gray-400" />
+                <input type="date" v-model="dateFrom" @change="onDateChange" :max="dateTo" class="frox-date-input" />
+                <span class="text-gray-400 text-desc">&mdash;</span>
+                <input type="date" v-model="dateTo" @change="onDateChange" :min="dateFrom" :max="defaultDate" class="frox-date-input" />
+              </div>
+              <button class="frox-btn frox-btn-brand frox-btn-sm" @click="runCollect" :disabled="collecting || collectCooldown > 0">
+                <RefreshCw :size="14" :class="{ 'animate-spin': collecting }" />
+                {{ collecting ? 'Сбор...' : collectCooldown > 0 ? `${collectCooldown}с` : 'Собрать' }}
+              </button>
+              <button class="frox-btn frox-btn-outline frox-btn-sm" @click="syncProducts" :disabled="syncing">
+                <Download :size="14" />
+                {{ syncing ? 'Синхронизация...' : 'Синхронизировать' }}
               </button>
             </div>
           </div>
 
-          <!-- Summary cards -->
-          <div class="section">
-            <div class="section-header">
-              <h2 class="section-title">
+          <!-- Summary KPI cards -->
+          <div class="mb-6">
+            <div class="flex items-center justify-between mb-3">
+              <h3 class="text-header-7 font-semibold text-gray-1100 dark:text-gray-dark-1100">
                 Сводка за {{ dashboard?.date_from === dashboard?.date_to ? dashboard?.date_from : dashboard?.date_from + ' — ' + dashboard?.date_to }}
-              </h2>
-              <span v-if="dashboard" class="date-compare-hint">
+              </h3>
+              <span v-if="dashboard" class="text-desc text-gray-400 dark:text-gray-dark-400">
                 сравнение с {{ dashboard.date_prev_from === dashboard.date_prev_to ? dashboard.date_prev_from : dashboard.date_prev_from + ' — ' + dashboard.date_prev_to }}
               </span>
             </div>
 
-            <div v-if="!dashboard || !dashboard.products.length" class="empty">
-              Данные появятся после первого сбора. Нажмите «Собрать данные» или дождитесь утреннего cron (07:00).
+            <div v-if="!dashboard || !dashboard.products.length" class="frox-empty">
+              Данные появятся после первого сбора. Нажмите «Собрать» или дождитесь cron (07:00).
             </div>
 
-            <div v-else class="kpi-grid">
-              <div class="kpi-card">
-                <div class="kpi-label">Выручка</div>
-                <div class="kpi-value">{{ fmtMoney(dashboard.totals.revenue) }} &#8381;</div>
-                <div class="kpi-delta" :class="deltaClass(dashboard.totals.revenue, dashboard.totals.revenue_prev)">
-                  {{ delta(dashboard.totals.revenue, dashboard.totals.revenue_prev) }}
+            <div v-else class="grid grid-cols-1 gap-5 lg:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
+              <!-- Revenue -->
+              <div class="frox-stat-card">
+                <div class="flex items-center justify-between mb-3">
+                  <p class="text-desc text-gray-500 dark:text-gray-dark-500">Выручка</p>
+                </div>
+                <div class="flex items-center justify-between">
+                  <div class="flex items-center gap-2">
+                    <div class="frox-stat-icon" style="background: var(--bg-10)"><TrendingUp :size="16" style="color: var(--violet-accent)" /></div>
+                    <p class="text-btn-label font-bold text-gray-1100 dark:text-gray-dark-1100">{{ fmtMoney(dashboard.totals.revenue) }} &#8381;</p>
+                  </div>
+                  <div class="flex items-center gap-1">
+                    <ArrowUpRight v-if="dashboard.totals.revenue >= dashboard.totals.revenue_prev" :size="14" class="text-green" />
+                    <ArrowDownRight v-else :size="14" class="text-red" />
+                    <span class="text-subtitle font-medium" :class="dashboard.totals.revenue >= dashboard.totals.revenue_prev ? 'kpi-up' : 'kpi-down'">
+                      {{ delta(dashboard.totals.revenue, dashboard.totals.revenue_prev) }}
+                    </span>
+                  </div>
                 </div>
               </div>
-              <div class="kpi-card">
-                <div class="kpi-label">Заказы</div>
-                <div class="kpi-value">{{ dashboard.totals.orders }}</div>
-                <div class="kpi-delta" :class="deltaClass(dashboard.totals.orders, dashboard.totals.orders_prev)">
-                  {{ delta(dashboard.totals.orders, dashboard.totals.orders_prev) }}
+
+              <!-- Orders -->
+              <div class="frox-stat-card">
+                <div class="flex items-center justify-between mb-3">
+                  <p class="text-desc text-gray-500 dark:text-gray-dark-500">Заказы</p>
+                </div>
+                <div class="flex items-center justify-between">
+                  <div class="flex items-center gap-2">
+                    <div class="frox-stat-icon" style="background: var(--bg-5)"><ShoppingCart :size="16" style="color: var(--green-accent)" /></div>
+                    <p class="text-btn-label font-bold text-gray-1100 dark:text-gray-dark-1100">{{ dashboard.totals.orders }}</p>
+                  </div>
+                  <div class="flex items-center gap-1">
+                    <ArrowUpRight v-if="dashboard.totals.orders >= dashboard.totals.orders_prev" :size="14" class="text-green" />
+                    <ArrowDownRight v-else :size="14" class="text-red" />
+                    <span class="text-subtitle font-medium" :class="dashboard.totals.orders >= dashboard.totals.orders_prev ? 'kpi-up' : 'kpi-down'">
+                      {{ delta(dashboard.totals.orders, dashboard.totals.orders_prev) }}
+                    </span>
+                  </div>
                 </div>
               </div>
-              <div class="kpi-card">
-                <div class="kpi-label">Возвраты</div>
-                <div class="kpi-value">{{ dashboard.totals.returns }}</div>
-                <div class="kpi-delta" :class="deltaClass(dashboard.totals.returns_prev, dashboard.totals.returns)">
-                  {{ dashboard.totals.sales ? ((dashboard.totals.returns / dashboard.totals.sales) * 100).toFixed(1) + '%' : '—' }}
+
+              <!-- Returns -->
+              <div class="frox-stat-card">
+                <div class="flex items-center justify-between mb-3">
+                  <p class="text-desc text-gray-500 dark:text-gray-dark-500">Возвраты</p>
+                </div>
+                <div class="flex items-center justify-between">
+                  <div class="flex items-center gap-2">
+                    <div class="frox-stat-icon" style="background: var(--bg-3)"><RotateCcw :size="16" style="color: var(--red-accent)" /></div>
+                    <p class="text-btn-label font-bold text-gray-1100 dark:text-gray-dark-1100">{{ dashboard.totals.returns }}</p>
+                  </div>
+                  <span class="text-desc text-gray-400">
+                    {{ dashboard.totals.sales ? ((dashboard.totals.returns / dashboard.totals.sales) * 100).toFixed(1) + '%' : '—' }}
+                  </span>
                 </div>
               </div>
-              <div class="kpi-card">
-                <div class="kpi-label">Остатки</div>
-                <div class="kpi-value">{{ dashboard.stock.total_qty }}</div>
-                <div class="kpi-delta" :class="dashboard.stock.low_stock_count > 0 ? 'delta-down' : ''">
-                  {{ dashboard.stock.low_stock_count > 0 ? dashboard.stock.low_stock_count + ' мало' : 'OK' }}
+
+              <!-- Stock -->
+              <div class="frox-stat-card">
+                <div class="flex items-center justify-between mb-3">
+                  <p class="text-desc text-gray-500 dark:text-gray-dark-500">Остатки</p>
+                </div>
+                <div class="flex items-center justify-between">
+                  <div class="flex items-center gap-2">
+                    <div class="frox-stat-icon" style="background: var(--bg-9)"><Boxes :size="16" style="color: var(--blue-accent)" /></div>
+                    <p class="text-btn-label font-bold text-gray-1100 dark:text-gray-dark-1100">{{ dashboard.stock.total_qty }}</p>
+                  </div>
+                  <span class="text-desc" :class="dashboard.stock.low_stock_count > 0 ? 'kpi-down' : 'text-gray-400'">
+                    {{ dashboard.stock.low_stock_count > 0 ? dashboard.stock.low_stock_count + ' мало' : 'OK' }}
+                  </span>
                 </div>
               </div>
-              <div class="kpi-card">
-                <div class="kpi-label">Рейтинг</div>
-                <div class="kpi-value">{{ dashboard.reviews.avg_rating }}</div>
-                <div class="kpi-delta" :class="dashboard.reviews.new_negatives > 0 ? 'delta-down' : ''">
-                  {{ dashboard.reviews.new_negatives > 0 ? dashboard.reviews.new_negatives + ' негат.' : 'нет негативных' }}
+
+              <!-- Rating -->
+              <div class="frox-stat-card">
+                <div class="flex items-center justify-between mb-3">
+                  <p class="text-desc text-gray-500 dark:text-gray-dark-500">Рейтинг</p>
+                </div>
+                <div class="flex items-center justify-between">
+                  <div class="flex items-center gap-2">
+                    <div class="frox-stat-icon" style="background: var(--bg-2)"><Star :size="16" style="color: var(--orange-accent)" /></div>
+                    <p class="text-btn-label font-bold text-gray-1100 dark:text-gray-dark-1100">{{ dashboard.reviews.avg_rating }}</p>
+                  </div>
+                  <span class="text-desc" :class="dashboard.reviews.new_negatives > 0 ? 'kpi-down' : 'text-gray-400'">
+                    {{ dashboard.reviews.new_negatives > 0 ? dashboard.reviews.new_negatives + ' негат.' : 'OK' }}
+                  </span>
                 </div>
               </div>
-              <div class="kpi-card">
-                <div class="kpi-label">Алерты</div>
-                <div class="kpi-value">{{ dashboard.alerts.unread }}</div>
-                <div class="kpi-delta" :class="dashboard.alerts.unread > 0 ? 'delta-down' : ''">
-                  {{ dashboard.alerts.unread > 0 ? 'непрочитанных' : 'все прочитаны' }}
+
+              <!-- Alerts -->
+              <div class="frox-stat-card">
+                <div class="flex items-center justify-between mb-3">
+                  <p class="text-desc text-gray-500 dark:text-gray-dark-500">Алерты</p>
+                </div>
+                <div class="flex items-center justify-between">
+                  <div class="flex items-center gap-2">
+                    <div class="frox-stat-icon" style="background: var(--bg-4)"><BellRing :size="16" style="color: var(--fuchsia-accent)" /></div>
+                    <p class="text-btn-label font-bold text-gray-1100 dark:text-gray-dark-1100">{{ dashboard.alerts.unread }}</p>
+                  </div>
+                  <span class="text-desc" :class="dashboard.alerts.unread > 0 ? 'kpi-down' : 'text-gray-400'">
+                    {{ dashboard.alerts.unread > 0 ? 'непрочитанных' : 'все OK' }}
+                  </span>
                 </div>
               </div>
             </div>
           </div>
 
           <!-- Chart -->
-          <div v-if="dashboard && dashboard.daily && dashboard.daily.length > 1" class="section">
-            <div class="chart-metrics">
+          <div v-if="dashboard && dashboard.daily && dashboard.daily.length > 1" class="frox-card mb-6 p-5">
+            <div class="flex items-center gap-2 flex-wrap mb-4">
               <button v-for="m in chartMetrics" :key="m.key"
-                class="chart-metric-btn" :class="{ active: chartMetric === m.key }"
+                class="frox-chip"
+                :class="{ 'frox-chip-active': chartMetric === m.key }"
                 :style="chartMetric === m.key ? { background: m.color, borderColor: m.color, color: '#fff' } : {}"
                 @click="chartMetric = m.key">
                 {{ m.label }}
               </button>
             </div>
-            <div class="chart-wrap">
+            <div style="height: 280px;">
               <Line :data="chartData" :options="chartOptions" />
             </div>
           </div>
 
           <!-- Products table -->
-          <div class="section">
-            <div class="section-header">
-              <h2 class="section-title">Товары <span class="section-count">{{ dashboard?.products.length || 0 }}</span></h2>
-              <div class="prod-per-page">
-                <span class="per-page-label">На странице:</span>
-                <select v-model.number="prodPerPage">
+          <div class="frox-card mb-6">
+            <div class="flex items-center justify-between p-5 pb-0">
+              <h3 class="text-header-7 font-semibold text-gray-1100 dark:text-gray-dark-1100">
+                Товары <span class="text-desc text-gray-400 font-normal ml-1">{{ dashboard?.products.length || 0 }}</span>
+              </h3>
+              <div class="flex items-center gap-3">
+                <span class="text-desc text-gray-500">На странице:</span>
+                <select v-model.number="prodPerPage" class="frox-select-sm">
                   <option :value="10">10</option>
                   <option :value="30">30</option>
                   <option :value="50">50</option>
@@ -702,109 +788,110 @@ onMounted(async () => {
               </div>
             </div>
 
-            <div v-if="!dashboard || !dashboard.products.length" class="empty">
+            <div v-if="!dashboard || !dashboard.products.length" class="frox-empty">
               Данные появятся после первого сбора или синхронизации.
             </div>
-            <div v-else class="products-table-wrap">
-              <table class="products-table">
+            <div v-else class="overflow-x-auto scrollbar-hide">
+              <table class="frox-table">
                 <thead>
                   <tr>
-                    <th></th>
-                    <th class="sortable" @click="setProdSort('title')">Товар{{ sortIndicator('title') }}</th>
-                    <th class="sortable" @click="setProdSort('revenue')">Выручка{{ sortIndicator('revenue') }}</th>
-                    <th class="sortable" @click="setProdSort('orders_count')">Заказы{{ sortIndicator('orders_count') }}</th>
-                    <th class="sortable" @click="setProdSort('stock_qty')">Остаток{{ sortIndicator('stock_qty') }}</th>
-                    <th class="sortable" @click="setProdSort('price')">Цена{{ sortIndicator('price') }}</th>
-                    <th class="sortable" @click="setProdSort('final_price')">Со скидкой{{ sortIndicator('final_price') }}</th>
-                    <th class="sortable" @click="setProdSort('margin')">Маржа{{ sortIndicator('margin') }}</th>
+                    <th style="width: 48px;"></th>
+                    <th class="frox-th-sort" @click="setProdSort('title')">Товар{{ sortIndicator('title') }}</th>
+                    <th class="frox-th-sort" @click="setProdSort('revenue')">Выручка{{ sortIndicator('revenue') }}</th>
+                    <th class="frox-th-sort" @click="setProdSort('orders_count')">Заказы{{ sortIndicator('orders_count') }}</th>
+                    <th class="frox-th-sort" @click="setProdSort('stock_qty')">Остаток{{ sortIndicator('stock_qty') }}</th>
+                    <th class="frox-th-sort" @click="setProdSort('price')">Цена{{ sortIndicator('price') }}</th>
+                    <th class="frox-th-sort" @click="setProdSort('final_price')">Со скидкой{{ sortIndicator('final_price') }}</th>
+                    <th class="frox-th-sort" @click="setProdSort('margin')">Маржа{{ sortIndicator('margin') }}</th>
                   </tr>
                 </thead>
                 <tbody v-for="p in paginatedProducts" :key="p.nm_id">
-                  <tr class="product-row" :class="{ 'product-row-expanded': expandedNmId === p.nm_id }" @click="toggleExpand(p.nm_id)">
-                    <td><img v-if="p.image_url" :src="p.image_url" class="product-img" /></td>
+                  <tr class="frox-row" :class="{ 'frox-row-active': expandedNmId === p.nm_id }" @click="toggleExpand(p.nm_id)">
+                    <td><img v-if="p.image_url" :src="p.image_url" class="w-10 h-10 rounded-lg object-cover" /></td>
                     <td>
-                      <div class="product-article-row">
-                        <span>{{ p.title || '—' }}</span>
-                        <a v-if="p.nm_id > 0" :href="`https://www.wildberries.ru/catalog/${p.nm_id}/detail.aspx`" target="_blank" rel="noopener" class="wb-link" title="Открыть на WB" @click.stop>
-                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+                      <div class="flex items-center gap-1.5">
+                        <span class="font-semibold text-gray-1100 dark:text-gray-dark-1100">{{ p.title || '—' }}</span>
+                        <a v-if="p.nm_id > 0" :href="`https://www.wildberries.ru/catalog/${p.nm_id}/detail.aspx`" target="_blank" rel="noopener" class="text-gray-300 hover:text-color-brands transition-colors" @click.stop>
+                          <ExternalLink :size="13" />
                         </a>
                       </div>
-                      <div class="product-nmid">{{ p.nm_id > 0 ? p.nm_id : 'ручной' }}</div>
+                      <div class="text-mini-desc text-gray-400">{{ p.nm_id > 0 ? p.nm_id : 'ручной' }}</div>
                     </td>
                     <td>
-                      <div>{{ fmtMoney(p.revenue) }} &#8381;</div>
-                      <div class="kpi-delta-sm" :class="deltaClass(p.revenue, p.revenue_prev)">{{ delta(p.revenue, p.revenue_prev) }}</div>
+                      <div class="font-medium">{{ fmtMoney(p.revenue) }} &#8381;</div>
+                      <div class="text-mini-desc" :class="deltaClass(p.revenue, p.revenue_prev) === 'delta-up' ? 'kpi-up' : deltaClass(p.revenue, p.revenue_prev) === 'delta-down' ? 'kpi-down' : 'text-gray-400'">{{ delta(p.revenue, p.revenue_prev) }}</div>
                     </td>
                     <td>
                       <div>{{ p.orders_count }}</div>
-                      <div class="kpi-delta-sm" :class="deltaClass(p.orders_count, p.orders_prev)">{{ delta(p.orders_count, p.orders_prev) }}</div>
+                      <div class="text-mini-desc" :class="deltaClass(p.orders_count, p.orders_prev) === 'delta-up' ? 'kpi-up' : deltaClass(p.orders_count, p.orders_prev) === 'delta-down' ? 'kpi-down' : 'text-gray-400'">{{ delta(p.orders_count, p.orders_prev) }}</div>
                     </td>
-                    <td :class="p.stock_qty > 0 && p.stock_qty < 10 ? 'stock-low' : ''">{{ p.stock_qty }}</td>
+                    <td :class="p.stock_qty > 0 && p.stock_qty < 10 ? 'kpi-down font-semibold' : ''">{{ p.stock_qty }}</td>
                     <td>{{ p.price ? p.price + ' ₽' : '—' }}</td>
                     <td>{{ p.final_price ? p.final_price + ' ₽' : '—' }}</td>
-                    <td :class="p.margin !== null && p.margin < 20 ? 'margin-low' : ''">{{ p.margin !== null ? p.margin + '%' : '—' }}</td>
+                    <td :class="p.margin !== null && p.margin < 20 ? 'kpi-warn font-semibold' : ''">{{ p.margin !== null ? p.margin + '%' : '—' }}</td>
                   </tr>
-                  <tr v-if="expandedNmId === p.nm_id" class="product-expand-row">
-                    <td :colspan="8">
-                      <div class="product-expand">
-                        <div class="expand-fields">
-                          <div class="expand-field">
-                            <span class="expand-label">Бренд</span>
+                  <tr v-if="expandedNmId === p.nm_id">
+                    <td :colspan="8" class="!p-0">
+                      <div class="frox-expand-panel">
+                        <div class="flex items-center gap-6 flex-wrap">
+                          <div class="frox-expand-field">
+                            <span class="frox-expand-label">Бренд</span>
                             <span>{{ getProduct(p.nm_id)?.brand || '—' }}</span>
                           </div>
-                          <div class="expand-field">
-                            <span class="expand-label">Артикул</span>
+                          <div class="frox-expand-field">
+                            <span class="frox-expand-label">Артикул</span>
                             <span>{{ getProduct(p.nm_id)?.article || '—' }}</span>
                           </div>
-                          <div class="expand-field">
-                            <span class="expand-label">Себестоимость</span>
+                          <div class="frox-expand-field">
+                            <span class="frox-expand-label">Себестоимость</span>
                             <template v-if="editingNmId === p.nm_id">
-                              <input type="number" v-model.number="editForm.cost_price" class="cost-input"
+                              <input type="number" v-model.number="editForm.cost_price" class="frox-input-inline"
                                 @keydown.enter="saveEdit(p.nm_id)" @keydown.escape="cancelEdit" @click.stop />
                             </template>
-                            <span v-else :class="{ 'cost-zero': !p.cost_price }">{{ p.cost_price ? p.cost_price + ' ₽' : '—' }}</span>
+                            <span v-else :class="{ 'text-gray-300': !p.cost_price }">{{ p.cost_price ? p.cost_price + ' ₽' : '—' }}</span>
                           </div>
-                          <div v-if="editingNmId === p.nm_id" class="expand-field">
-                            <span class="expand-label">Название</span>
-                            <input type="text" v-model="editForm.title" class="cost-input"
+                          <div v-if="editingNmId === p.nm_id" class="frox-expand-field">
+                            <span class="frox-expand-label">Название</span>
+                            <input type="text" v-model="editForm.title" class="frox-input-inline"
                               @keydown.enter="saveEdit(p.nm_id)" @keydown.escape="cancelEdit" @click.stop />
                           </div>
                         </div>
-                        <div class="expand-actions" @click.stop>
+                        <div class="flex gap-2 items-center" @click.stop>
                           <template v-if="editingNmId === p.nm_id">
-                            <button class="btn btn-primary btn-sm" @click="saveEdit(p.nm_id)">Сохранить</button>
-                            <button class="btn btn-secondary btn-sm" @click="cancelEdit">Отмена</button>
+                            <button class="frox-btn frox-btn-brand frox-btn-sm" @click="saveEdit(p.nm_id)"><Check :size="14" /> Сохранить</button>
+                            <button class="frox-btn frox-btn-outline frox-btn-sm" @click="cancelEdit"><X :size="14" /> Отмена</button>
                           </template>
                           <template v-else>
-                            <button class="btn btn-secondary btn-sm" @click="startEdit(getProduct(p.nm_id)!)">Редактировать</button>
-                            <button class="btn btn-secondary btn-sm btn-danger-text" @click="removeProduct(getProduct(p.nm_id)!)">Удалить</button>
+                            <button class="frox-btn frox-btn-outline frox-btn-sm" @click="startEdit(getProduct(p.nm_id)!)"><Pencil :size="13" /> Редактировать</button>
+                            <button class="frox-btn frox-btn-outline frox-btn-sm frox-btn-danger" @click="removeProduct(getProduct(p.nm_id)!)"><Trash2 :size="13" /> Удалить</button>
                           </template>
                         </div>
 
                         <!-- Reviews for this product -->
-                        <div v-if="p.nm_id > 0" class="product-reviews" @click.stop>
-                          <div class="product-reviews-header">
-                            <span class="expand-label">Отзывы</span>
-                            <span v-if="productReviews.length" class="reviews-count">{{ productReviews.length }}</span>
+                        <div v-if="p.nm_id > 0" class="w-full mt-4 pt-4 border-t border-neutral-accent dark:border-dark-neutral-border" @click.stop>
+                          <div class="flex items-center gap-2 mb-3">
+                            <span class="text-desc text-gray-400 font-semibold uppercase tracking-wider">Отзывы</span>
+                            <span v-if="productReviews.length" class="frox-badge-count">{{ productReviews.length }}</span>
                           </div>
-                          <div v-if="productReviewsLoading" class="reviews-loading">Загрузка отзывов...</div>
-                          <div v-else-if="productReviews.length === 0" class="reviews-empty">Отзывов пока нет</div>
-                          <div v-else class="reviews-list">
-                            <div v-for="rv in productReviews" :key="rv.review_id" class="review-card" :class="{ 'review-negative': rv.sentiment === 'negative', 'review-new': rv.is_new }">
-                              <div class="review-top">
-                                <span class="review-rating" :class="rv.rating <= 2 ? 'rating-low' : rv.rating >= 4 ? 'rating-high' : ''">{{ ratingStars(rv.rating) }}</span>
-                                <span v-if="rv.author" class="review-author">{{ rv.author }}</span>
-                                <span class="review-date">{{ formatReviewDate(rv.review_date || rv.created_at) }}</span>
-                                <span v-if="rv.sentiment" class="review-sentiment" :class="'sentiment-' + rv.sentiment">{{ sentimentLabel(rv.sentiment) }}</span>
-                                <span v-if="rv.is_new" class="review-new-badge">new</span>
+                          <div v-if="productReviewsLoading" class="text-desc text-gray-400">Загрузка отзывов...</div>
+                          <div v-else-if="productReviews.length === 0" class="text-desc text-gray-400">Отзывов пока нет</div>
+                          <div v-else class="flex flex-col gap-2 max-h-[400px] overflow-y-auto">
+                            <div v-for="rv in productReviews" :key="rv.review_id" class="frox-review-card" :class="{ 'frox-review-negative': rv.sentiment === 'negative', 'frox-review-new': rv.is_new }">
+                              <div class="flex items-center gap-2 flex-wrap mb-1">
+                                <span class="text-desc tracking-wider" :class="rv.rating <= 2 ? 'kpi-down' : rv.rating >= 4 ? 'kpi-up' : ''">{{ ratingStars(rv.rating) }}</span>
+                                <span v-if="rv.author" class="font-semibold text-desc text-gray-1100 dark:text-gray-dark-1100">{{ rv.author }}</span>
+                                <span class="text-mini-desc text-gray-400">{{ formatReviewDate(rv.review_date || rv.created_at) }}</span>
+                                <span v-if="rv.sentiment" class="frox-sentiment" :class="'frox-sentiment-' + rv.sentiment">{{ sentimentLabel(rv.sentiment) }}</span>
+                                <span v-if="rv.is_new" class="frox-badge-new">new</span>
                               </div>
-                              <div class="review-text">{{ rv.text }}</div>
-                              <div v-if="rv.suggested_response" class="review-response">
-                                <span class="expand-label">Рекомендация:</span> {{ rv.suggested_response }}
+                              <div class="text-normal text-gray-1100 dark:text-gray-dark-1100 leading-relaxed">{{ rv.text }}</div>
+                              <div v-if="rv.suggested_response" class="mt-2 p-2 rounded-lg bg-gray-100 dark:bg-gray-dark-100 text-desc text-gray-600 dark:text-gray-dark-600">
+                                <span class="font-semibold">Рекомендация:</span> {{ rv.suggested_response }}
                               </div>
-                              <button v-if="!rv.sentiment" class="btn btn-secondary btn-sm review-analyze-btn"
+                              <button v-if="!rv.sentiment" class="frox-btn frox-btn-outline frox-btn-sm mt-2"
                                 :disabled="analyzingReviewId === rv.review_id"
                                 @click="analyzeReview(rv)">
+                                <Sparkles :size="13" />
                                 {{ analyzingReviewId === rv.review_id ? 'Анализ...' : 'Анализировать' }}
                               </button>
                             </div>
@@ -815,30 +902,38 @@ onMounted(async () => {
                   </tr>
                 </tbody>
               </table>
-              <div v-if="prodTotalPages > 1" class="prod-pagination">
-                <button class="btn btn-secondary btn-sm" :disabled="prodPage <= 1" @click="prodPage--">&larr;</button>
-                <span class="page-info">{{ prodPage }} / {{ prodTotalPages }}</span>
-                <button class="btn btn-secondary btn-sm" :disabled="prodPage >= prodTotalPages" @click="prodPage++">&rarr;</button>
+              <div v-if="prodTotalPages > 1" class="flex items-center justify-center gap-3 p-4">
+                <button class="frox-btn frox-btn-outline frox-btn-sm" :disabled="prodPage <= 1" @click="prodPage--">
+                  <ChevronLeft :size="14" />
+                </button>
+                <span class="text-normal text-gray-500">{{ prodPage }} / {{ prodTotalPages }}</span>
+                <button class="frox-btn frox-btn-outline frox-btn-sm" :disabled="prodPage >= prodTotalPages" @click="prodPage++">
+                  <ChevronRight :size="14" />
+                </button>
               </div>
             </div>
           </div>
 
           <!-- Alerts -->
-          <div class="section">
-            <div class="section-header">
-              <h2 class="section-title">Уведомления</h2>
-              <button v-if="unreadAlerts.length" class="btn btn-secondary btn-sm" @click="markAllRead">Прочитать все</button>
+          <div class="frox-card mb-6 p-5">
+            <div class="flex items-center justify-between mb-4">
+              <h3 class="text-header-7 font-semibold text-gray-1100 dark:text-gray-dark-1100">Уведомления</h3>
+              <button v-if="unreadAlerts.length" class="frox-btn frox-btn-outline frox-btn-sm" @click="markAllRead">
+                <Check :size="14" /> Прочитать все
+              </button>
             </div>
-            <div v-if="alerts.length === 0" class="empty">Уведомлений пока нет</div>
-            <div v-else class="alerts-list">
-              <div v-for="a in alerts" :key="a.id" class="alert-card" :class="{ 'alert-unread': !a.is_read, ['alert-' + a.severity]: true }">
-                <div class="alert-header">
-                  <span class="alert-severity">{{ a.severity === 'critical' ? '!!' : a.severity === 'warning' ? '!' : 'i' }}</span>
-                  <strong>{{ a.title }}</strong>
-                  <span class="alert-date">{{ formatDate(a.created_at) }}</span>
+            <div v-if="alerts.length === 0" class="frox-empty">Уведомлений пока нет</div>
+            <div v-else class="flex flex-col gap-3">
+              <div v-for="a in alerts" :key="a.id" class="frox-alert" :class="{ 'frox-alert-unread': !a.is_read, ['frox-alert-' + a.severity]: true }">
+                <div class="flex items-center gap-2">
+                  <AlertCircle v-if="a.severity === 'critical'" :size="16" class="text-red flex-shrink-0" />
+                  <AlertTriangle v-else-if="a.severity === 'warning'" :size="16" style="color: var(--yellow-accent)" class="flex-shrink-0" />
+                  <Info v-else :size="16" style="color: var(--color-brands)" class="flex-shrink-0" />
+                  <strong class="text-normal text-gray-1100 dark:text-gray-dark-1100">{{ a.title }}</strong>
+                  <span class="text-mini-desc text-gray-400 ml-auto whitespace-nowrap">{{ formatDate(a.created_at) }}</span>
                 </div>
-                <div class="alert-desc">{{ a.description }}</div>
-                <button v-if="!a.is_read" class="btn btn-secondary btn-sm" @click="markRead(a.id)">Прочитано</button>
+                <p class="text-desc text-gray-500 dark:text-gray-dark-500 mt-1">{{ a.description }}</p>
+                <button v-if="!a.is_read" class="frox-btn frox-btn-outline frox-btn-sm mt-2" @click="markRead(a.id)">Прочитано</button>
               </div>
             </div>
           </div>
@@ -846,49 +941,59 @@ onMounted(async () => {
       </div>
 
       <!-- ==================== TAB: Отзывы ==================== -->
-      <div v-if="tab === 'reviews'" class="tab-content">
-        <div class="section">
-          <div class="section-header">
-            <h2 class="section-title">Отзывы</h2>
-            <button class="btn btn-primary btn-sm" @click="runCollectReviews" :disabled="collectingReviews">
+      <div v-if="tab === 'reviews'">
+        <div class="frox-card p-5 mb-5">
+          <div class="flex items-center justify-between mb-4">
+            <h3 class="text-header-7 font-semibold text-gray-1100 dark:text-gray-dark-1100">Все отзывы</h3>
+            <button class="frox-btn frox-btn-brand frox-btn-sm" @click="runCollectReviews" :disabled="collectingReviews">
+              <RefreshCw :size="14" :class="{ 'animate-spin': collectingReviews }" />
               {{ collectingReviews ? 'Сбор...' : 'Обновить отзывы' }}
             </button>
           </div>
 
-          <div class="filters-bar" style="margin-bottom: 1rem;">
-            <select v-model.number="reviewFilter.nm_id">
-              <option :value="0">Все товары</option>
-              <option v-for="[nmId, title] in reviewProducts" :key="nmId" :value="nmId">{{ title }}</option>
-            </select>
-            <select v-model="reviewFilter.sentiment">
-              <option value="">Все настроения</option>
-              <option value="positive">Позитивные</option>
-              <option value="neutral">Нейтральные</option>
-              <option value="negative">Негативные</option>
-            </select>
-            <button class="btn btn-secondary btn-sm" @click="resetReviewFilters">Сбросить</button>
+          <div class="frox-card frox-toolbar mb-4">
+            <div class="flex items-center gap-3 flex-wrap">
+              <Filter :size="14" class="text-gray-400" />
+              <select v-model.number="reviewFilter.nm_id" class="frox-select-sm">
+                <option :value="0">Все товары</option>
+                <option v-for="[nmId, title] in reviewProducts" :key="nmId" :value="nmId">{{ title }}</option>
+              </select>
+              <select v-model="reviewFilter.sentiment" class="frox-select-sm">
+                <option value="">Все настроения</option>
+                <option value="positive">Позитивные</option>
+                <option value="neutral">Нейтральные</option>
+                <option value="negative">Негативные</option>
+              </select>
+              <button class="frox-btn frox-btn-outline frox-btn-sm" @click="resetReviewFilters">
+                <X :size="13" /> Сбросить
+              </button>
+            </div>
           </div>
 
-          <div v-if="allReviewsLoading" class="empty">Загрузка...</div>
-          <div v-else-if="allReviews.length === 0" class="empty">Отзывов пока нет. Нажмите «Обновить отзывы» для сбора.</div>
-          <div v-else class="reviews-list reviews-list-full">
-            <div v-for="rv in allReviews" :key="rv.review_id" class="review-card"
-              :class="{ 'review-negative': rv.sentiment === 'negative', 'review-new': rv.is_new }">
-              <div class="review-top">
-                <span class="review-rating" :class="rv.rating <= 2 ? 'rating-low' : rv.rating >= 4 ? 'rating-high' : ''">{{ ratingStars(rv.rating) }}</span>
-                <span v-if="rv.author" class="review-author">{{ rv.author }}</span>
-                <span class="review-date">{{ formatReviewDate(rv.review_date || rv.created_at) }}</span>
-                <span v-if="rv.sentiment" class="review-sentiment" :class="'sentiment-' + rv.sentiment">{{ sentimentLabel(rv.sentiment) }}</span>
-                <span v-if="rv.is_new" class="review-new-badge">new</span>
-                <a :href="`https://www.wildberries.ru/catalog/${rv.nm_id}/detail.aspx`" target="_blank" rel="noopener" class="review-product-link">{{ products.find(p => p.nm_id === rv.nm_id)?.title || rv.nm_id }}</a>
+          <div v-if="allReviewsLoading" class="frox-empty">Загрузка...</div>
+          <div v-else-if="allReviews.length === 0" class="frox-empty">Отзывов пока нет. Нажмите «Обновить отзывы» для сбора.</div>
+          <div v-else class="flex flex-col gap-3">
+            <div v-for="rv in allReviews" :key="rv.review_id" class="frox-review-card"
+              :class="{ 'frox-review-negative': rv.sentiment === 'negative', 'frox-review-new': rv.is_new }">
+              <div class="flex items-center gap-2 flex-wrap mb-1">
+                <span class="text-desc tracking-wider" :class="rv.rating <= 2 ? 'kpi-down' : rv.rating >= 4 ? 'kpi-up' : ''">{{ ratingStars(rv.rating) }}</span>
+                <span v-if="rv.author" class="font-semibold text-desc text-gray-1100 dark:text-gray-dark-1100">{{ rv.author }}</span>
+                <span class="text-mini-desc text-gray-400">{{ formatReviewDate(rv.review_date || rv.created_at) }}</span>
+                <span v-if="rv.sentiment" class="frox-sentiment" :class="'frox-sentiment-' + rv.sentiment">{{ sentimentLabel(rv.sentiment) }}</span>
+                <span v-if="rv.is_new" class="frox-badge-new">new</span>
+                <a :href="`https://www.wildberries.ru/catalog/${rv.nm_id}/detail.aspx`" target="_blank" rel="noopener"
+                  class="ml-auto text-mini-desc px-2 py-0.5 rounded bg-gray-100 dark:bg-gray-dark-100 hover:underline" style="color: var(--color-brands)">
+                  {{ products.find(p => p.nm_id === rv.nm_id)?.title || rv.nm_id }}
+                </a>
               </div>
-              <div class="review-text">{{ rv.text }}</div>
-              <div v-if="rv.suggested_response" class="review-response">
-                <span class="expand-label">Рекомендация:</span> {{ rv.suggested_response }}
+              <div class="text-normal text-gray-1100 dark:text-gray-dark-1100 leading-relaxed">{{ rv.text }}</div>
+              <div v-if="rv.suggested_response" class="mt-2 p-2 rounded-lg bg-gray-100 dark:bg-gray-dark-100 text-desc text-gray-600 dark:text-gray-dark-600">
+                <span class="font-semibold">Рекомендация:</span> {{ rv.suggested_response }}
               </div>
-              <button v-if="!rv.sentiment" class="btn btn-secondary btn-sm review-analyze-btn"
+              <button v-if="!rv.sentiment" class="frox-btn frox-btn-outline frox-btn-sm mt-2"
                 :disabled="analyzingReviewId === rv.review_id"
                 @click="analyzeReview(rv)">
+                <Sparkles :size="13" />
                 {{ analyzingReviewId === rv.review_id ? 'Анализ...' : 'Анализировать' }}
               </button>
             </div>
@@ -897,173 +1002,173 @@ onMounted(async () => {
       </div>
 
       <!-- ==================== TAB: Отчёты ==================== -->
-      <div v-if="tab === 'reports'" class="tab-content">
+      <div v-if="tab === 'reports'">
         <!-- Actions -->
-        <div class="section">
-          <div class="section-header">
-            <h2 class="section-title">Сформировать отчёт</h2>
-          </div>
-          <div class="report-actions">
-            <button class="btn btn-primary btn-sm" @click="requestReport('daily')" :disabled="generating">
+        <div class="frox-card p-5 mb-5">
+          <h3 class="text-header-7 font-semibold text-gray-1100 dark:text-gray-dark-1100 mb-4">Сформировать отчёт</h3>
+          <div class="flex gap-3">
+            <button class="frox-btn frox-btn-brand frox-btn-sm" @click="requestReport('daily')" :disabled="generating">
+              <FileBarChart :size="14" />
               {{ generating ? 'Формирование...' : 'Дневной отчёт' }}
             </button>
-            <button class="btn btn-secondary btn-sm" @click="requestReport('weekly')" :disabled="generating">
+            <button class="frox-btn frox-btn-outline frox-btn-sm" @click="requestReport('weekly')" :disabled="generating">
+              <FileBarChart :size="14" />
               {{ generating ? 'Формирование...' : 'Недельный отчёт' }}
             </button>
           </div>
         </div>
 
         <!-- Schedule -->
-        <div class="section">
-          <h2 class="section-title">Расписание отчётов</h2>
-          <div class="report-toggles">
-            <label class="toggle-label">
-              <input type="checkbox" :checked="config.daily_report_enabled === 1" @change="config.daily_report_enabled = ($event.target as HTMLInputElement).checked ? 1 : 0" />
-              <span>Ежедневные отчёты</span>
+        <div class="frox-card p-5 mb-5">
+          <h3 class="text-header-7 font-semibold text-gray-1100 dark:text-gray-dark-1100 mb-4">Расписание отчётов</h3>
+          <div class="flex gap-6 mb-4">
+            <label class="frox-toggle-label">
+              <input type="checkbox" :checked="config.daily_report_enabled === 1" @change="config.daily_report_enabled = ($event.target as HTMLInputElement).checked ? 1 : 0" class="frox-checkbox" />
+              <span>Ежедневные</span>
             </label>
-            <label class="toggle-label">
-              <input type="checkbox" :checked="config.weekly_report_enabled === 1" @change="config.weekly_report_enabled = ($event.target as HTMLInputElement).checked ? 1 : 0" />
-              <span>Еженедельные отчёты</span>
+            <label class="frox-toggle-label">
+              <input type="checkbox" :checked="config.weekly_report_enabled === 1" @change="config.weekly_report_enabled = ($event.target as HTMLInputElement).checked ? 1 : 0" class="frox-checkbox" />
+              <span>Еженедельные</span>
             </label>
           </div>
-          <div class="field-row">
-            <div class="field">
-              <label>Дневной отчёт (UTC)</label>
-              <div class="schedule-time">
-                <select v-model.number="config.schedule_report_hour" :disabled="!config.daily_report_enabled">
+          <div class="flex gap-4 flex-wrap items-end">
+            <div class="frox-field">
+              <label class="frox-field-label">Дневной (UTC)</label>
+              <div class="flex items-center gap-1">
+                <select v-model.number="config.schedule_report_hour" :disabled="!config.daily_report_enabled" class="frox-select-sm">
                   <option v-for="h in 24" :key="h - 1" :value="h - 1">{{ String(h - 1).padStart(2, '0') }}</option>
                 </select>
-                <span class="schedule-colon">:</span>
-                <select v-model.number="config.schedule_report_minute" :disabled="!config.daily_report_enabled">
+                <span class="font-bold text-gray-500">:</span>
+                <select v-model.number="config.schedule_report_minute" :disabled="!config.daily_report_enabled" class="frox-select-sm">
                   <option v-for="m in 60" :key="m - 1" :value="m - 1">{{ String(m - 1).padStart(2, '0') }}</option>
                 </select>
               </div>
             </div>
-            <div class="field">
-              <label>Недельный отчёт (UTC)</label>
-              <div class="schedule-time">
-                <select v-model.number="config.schedule_report_weekly_hour" :disabled="!config.weekly_report_enabled">
+            <div class="frox-field">
+              <label class="frox-field-label">Недельный (UTC)</label>
+              <div class="flex items-center gap-1">
+                <select v-model.number="config.schedule_report_weekly_hour" :disabled="!config.weekly_report_enabled" class="frox-select-sm">
                   <option v-for="h in 24" :key="h - 1" :value="h - 1">{{ String(h - 1).padStart(2, '0') }}</option>
                 </select>
-                <span class="schedule-colon">:</span>
-                <select v-model.number="config.schedule_report_weekly_minute" :disabled="!config.weekly_report_enabled">
+                <span class="font-bold text-gray-500">:</span>
+                <select v-model.number="config.schedule_report_weekly_minute" :disabled="!config.weekly_report_enabled" class="frox-select-sm">
                   <option v-for="m in 60" :key="m - 1" :value="m - 1">{{ String(m - 1).padStart(2, '0') }}</option>
                 </select>
               </div>
             </div>
-            <div class="field">
-              <label>День недельного</label>
-              <select v-model.number="config.report_weekly_day" :disabled="!config.weekly_report_enabled">
+            <div class="frox-field">
+              <label class="frox-field-label">День недельного</label>
+              <select v-model.number="config.report_weekly_day" :disabled="!config.weekly_report_enabled" class="frox-select-sm">
                 <option v-for="d in 7" :key="d" :value="d">{{ weekDays[d] }}</option>
               </select>
             </div>
-            <div class="field" style="align-self: flex-end">
-              <button class="btn btn-secondary btn-sm" @click="saveConfig" :disabled="configSaving">
-                {{ configSaving ? 'Сохранение...' : 'Сохранить' }}
-              </button>
-            </div>
+            <button class="frox-btn frox-btn-outline frox-btn-sm" @click="saveConfig" :disabled="configSaving">
+              <Check :size="14" />
+              {{ configSaving ? 'Сохранение...' : 'Сохранить' }}
+            </button>
           </div>
         </div>
 
         <!-- History -->
-        <div class="section">
-          <div class="section-header">
-            <h2 class="section-title">История отчётов</h2>
-          </div>
-          <div v-if="reportsLoading" class="empty">Загрузка...</div>
-          <div v-else-if="reports.length === 0" class="empty">Отчётов пока нет. Нажмите «Дневной отчёт» или дождитесь автоматической генерации.</div>
-          <div v-else class="reports-list">
-            <div v-for="r in reports" :key="r.id" class="report-card" :class="{ 'report-expanded': expandedReportId === r.id }" @click="toggleReport(r.id)">
-              <div class="report-header">
-                <span class="report-type-badge" :class="'report-type-' + r.type">{{ r.type === 'daily' ? 'Дневной' : 'Недельный' }}</span>
-                <span class="report-period">{{ r.date_from }}{{ r.date_to && r.date_to !== r.date_from ? ' — ' + r.date_to : '' }}</span>
-                <span class="report-status" :class="'status-' + r.status">{{ r.status === 'done' ? 'Готов' : r.status === 'generating' ? 'Формируется...' : 'Ошибка' }}</span>
-                <span class="report-date">{{ formatReportDate(r.created_at) }}</span>
+        <div class="frox-card p-5">
+          <h3 class="text-header-7 font-semibold text-gray-1100 dark:text-gray-dark-1100 mb-4">История отчётов</h3>
+          <div v-if="reportsLoading" class="frox-empty">Загрузка...</div>
+          <div v-else-if="reports.length === 0" class="frox-empty">Отчётов пока нет.</div>
+          <div v-else class="flex flex-col gap-3">
+            <div v-for="r in reports" :key="r.id"
+              class="frox-report-card" :class="{ 'frox-report-expanded': expandedReportId === r.id }"
+              @click="toggleReport(r.id)">
+              <div class="flex items-center gap-3 flex-wrap">
+                <span class="frox-report-badge" :class="'frox-report-' + r.type">{{ r.type === 'daily' ? 'Дневной' : 'Недельный' }}</span>
+                <span class="font-semibold text-normal text-gray-1100 dark:text-gray-dark-1100">{{ r.date_from }}{{ r.date_to && r.date_to !== r.date_from ? ' — ' + r.date_to : '' }}</span>
+                <span class="frox-status" :class="'frox-status-' + r.status">{{ r.status === 'done' ? 'Готов' : r.status === 'generating' ? 'Формируется...' : 'Ошибка' }}</span>
+                <span class="text-mini-desc text-gray-400 ml-auto">{{ formatReportDate(r.created_at) }}</span>
               </div>
-              <div v-if="r.summary && expandedReportId !== r.id" class="report-summary" v-html="r.summary"></div>
-              <div v-if="expandedReportId === r.id" class="report-content" v-html="expandedReportContent" @click.stop></div>
+              <div v-if="r.summary && expandedReportId !== r.id" class="text-desc text-gray-500 mt-2" v-html="r.summary"></div>
+              <div v-if="expandedReportId === r.id" class="mt-3 pt-3 border-t text-desc text-gray-1100 dark:text-gray-dark-1100 leading-relaxed cursor-text" style="border-color: var(--neutral-accent)" v-html="expandedReportContent" @click.stop></div>
             </div>
           </div>
         </div>
       </div>
 
       <!-- ==================== TAB: Настройки ==================== -->
-      <div v-if="tab === 'settings'" class="tab-content">
-        <div class="settings-section">
-          <h2 class="section-title">Wildberries API</h2>
-          <div class="field">
-            <label>API ключ WB Seller API</label>
-            <p v-if="config.wb_api_key_masked" class="field-hint" style="margin-bottom: .35rem">
-              Текущий ключ: <code>{{ config.wb_api_key_masked }}</code>
+      <div v-if="tab === 'settings'">
+        <div class="frox-card p-5 mb-5">
+          <h3 class="text-header-7 font-semibold text-gray-1100 dark:text-gray-dark-1100 mb-4">Wildberries API</h3>
+          <div class="frox-field mb-3">
+            <label class="frox-field-label">API ключ WB Seller API</label>
+            <p v-if="config.wb_api_key_masked" class="text-mini-desc text-gray-400 mb-1">
+              Текущий: <code class="px-1 py-0.5 rounded bg-gray-100 dark:bg-gray-dark-100 text-mini-desc">{{ config.wb_api_key_masked }}</code>
             </p>
-            <div class="field-row-inline">
-              <input type="password" v-model="config.wb_api_key" :placeholder="config.wb_api_key_set ? 'Введите новый ключ для замены' : 'Введите API ключ'" />
-              <button class="btn btn-secondary btn-sm" @click="testApiKey" :disabled="testingKey">
+            <div class="flex gap-2 items-center">
+              <input type="password" v-model="config.wb_api_key" :placeholder="config.wb_api_key_set ? 'Новый ключ для замены' : 'Введите API ключ'" class="frox-input flex-1" />
+              <button class="frox-btn frox-btn-outline frox-btn-sm" @click="testApiKey" :disabled="testingKey">
+                <Check :size="14" />
                 {{ testingKey ? 'Проверка...' : 'Проверить' }}
               </button>
             </div>
-            <p v-if="testResult" :class="testResult.valid ? 'field-success' : 'field-error'">
+            <p v-if="testResult" class="text-desc mt-1" :class="testResult.valid ? 'kpi-up' : 'kpi-down'">
               {{ testResult.valid ? 'Ключ валиден' : 'Ошибка: ' + testResult.error }}
             </p>
-            <p class="field-hint">Получите ключ в личном кабинете WB с правами на статистику, рекламу, отзывы и цены.</p>
+            <p class="text-mini-desc text-gray-400 mt-1">Получите ключ в ЛК WB с правами на статистику, рекламу, отзывы и цены.</p>
           </div>
         </div>
 
-        <div class="settings-section">
-          <h2 class="section-title">Telegram уведомления</h2>
-          <div class="field-row">
-            <div class="field">
-              <label>Bot Token</label>
-              <p v-if="config.tg_bot_token_masked" class="field-hint" style="margin-bottom: .35rem">
-                Текущий токен: <code>{{ config.tg_bot_token_masked }}</code>
+        <div class="frox-card p-5 mb-5">
+          <h3 class="text-header-7 font-semibold text-gray-1100 dark:text-gray-dark-1100 mb-4">Telegram уведомления</h3>
+          <div class="flex gap-4 flex-wrap">
+            <div class="frox-field flex-1 min-w-[200px]">
+              <label class="frox-field-label">Bot Token</label>
+              <p v-if="config.tg_bot_token_masked" class="text-mini-desc text-gray-400 mb-1">
+                Текущий: <code class="px-1 py-0.5 rounded bg-gray-100 dark:bg-gray-dark-100 text-mini-desc">{{ config.tg_bot_token_masked }}</code>
               </p>
-              <input type="password" v-model="config.tg_bot_token" :placeholder="config.tg_bot_token_set ? 'Введите новый токен для замены' : 'Токен бота'" />
+              <input type="password" v-model="config.tg_bot_token" :placeholder="config.tg_bot_token_set ? 'Новый токен для замены' : 'Токен бота'" class="frox-input" />
             </div>
-            <div class="field">
-              <label>Chat ID</label>
-              <input type="text" v-model="config.tg_chat_id" placeholder="123456789" />
-            </div>
-          </div>
-        </div>
-
-        <div class="settings-section">
-          <h2 class="section-title">Пороговые значения</h2>
-          <div class="field-row">
-            <div class="field">
-              <label>ДРР порог (%)</label>
-              <input type="number" v-model.number="config.drr_threshold" step="0.5" />
-              <p class="field-hint">Уведомление при превышении</p>
-            </div>
-            <div class="field">
-              <label>Мин. маржа (%)</label>
-              <input type="number" v-model.number="config.margin_threshold" step="0.5" />
-              <p class="field-hint">Порог рентабельности</p>
-            </div>
-            <div class="field">
-              <label>Падение конверсии (%)</label>
-              <input type="number" v-model.number="config.conversion_drop_pct" step="1" />
-              <p class="field-hint">Относительно среднего за 7 дней</p>
+            <div class="frox-field flex-1 min-w-[200px]">
+              <label class="frox-field-label">Chat ID</label>
+              <input type="text" v-model="config.tg_chat_id" placeholder="123456789" class="frox-input" />
             </div>
           </div>
         </div>
 
-        <div class="settings-section">
-          <h2 class="section-title">Расписание обновлений (UTC)</h2>
-          <p class="field-hint" style="margin-bottom: .75rem">Укажите время запуска каждой задачи. Время не должно совпадать у разных задач.</p>
-          <p v-if="scheduleDuplicateError" class="field-error" style="margin-bottom: .75rem">{{ scheduleDuplicateError }}</p>
-          <div class="schedule-grid">
-            <div v-for="task in scheduleTasks" :key="task.hourKey" class="schedule-row">
-              <label class="schedule-toggle">
+        <div class="frox-card p-5 mb-5">
+          <h3 class="text-header-7 font-semibold text-gray-1100 dark:text-gray-dark-1100 mb-4">Пороговые значения</h3>
+          <div class="flex gap-4 flex-wrap">
+            <div class="frox-field flex-1 min-w-[160px]">
+              <label class="frox-field-label">ДРР порог (%)</label>
+              <input type="number" v-model.number="config.drr_threshold" step="0.5" class="frox-input" />
+              <p class="text-mini-desc text-gray-400 mt-1">Уведомление при превышении</p>
+            </div>
+            <div class="frox-field flex-1 min-w-[160px]">
+              <label class="frox-field-label">Мин. маржа (%)</label>
+              <input type="number" v-model.number="config.margin_threshold" step="0.5" class="frox-input" />
+              <p class="text-mini-desc text-gray-400 mt-1">Порог рентабельности</p>
+            </div>
+            <div class="frox-field flex-1 min-w-[160px]">
+              <label class="frox-field-label">Падение конверсии (%)</label>
+              <input type="number" v-model.number="config.conversion_drop_pct" step="1" class="frox-input" />
+              <p class="text-mini-desc text-gray-400 mt-1">Отн. среднего за 7 дней</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="frox-card p-5 mb-5">
+          <h3 class="text-header-7 font-semibold text-gray-1100 dark:text-gray-dark-1100 mb-2">Расписание обновлений (UTC)</h3>
+          <p class="text-desc text-gray-400 mb-4">Время не должно совпадать у разных задач.</p>
+          <p v-if="scheduleDuplicateError" class="text-desc kpi-down mb-3">{{ scheduleDuplicateError }}</p>
+          <div class="flex flex-col gap-2">
+            <div v-for="task in scheduleTasks" :key="task.hourKey" class="frox-schedule-row">
+              <label class="frox-toggle-label">
                 <input type="checkbox" :checked="(config as any)[task.enabledKey] === 1"
-                  @change="(config as any)[task.enabledKey] = ($event.target as HTMLInputElement).checked ? 1 : 0" />
+                  @change="(config as any)[task.enabledKey] = ($event.target as HTMLInputElement).checked ? 1 : 0" class="frox-checkbox" />
               </label>
-              <span class="schedule-label" :class="{ 'schedule-disabled': !(config as any)[task.enabledKey] }">{{ task.label }}</span>
-              <div class="schedule-time">
-                <select v-model.number="(config as any)[task.hourKey]" :disabled="!(config as any)[task.enabledKey]">
+              <span class="text-normal font-medium text-gray-1100 dark:text-gray-dark-1100 flex-1" :class="{ 'opacity-40': !(config as any)[task.enabledKey] }">{{ task.label }}</span>
+              <div class="flex items-center gap-1">
+                <select v-model.number="(config as any)[task.hourKey]" :disabled="!(config as any)[task.enabledKey]" class="frox-select-sm w-[60px]">
                   <option v-for="h in 24" :key="h - 1" :value="h - 1">{{ String(h - 1).padStart(2, '0') }}</option>
                 </select>
-                <span class="schedule-colon">:</span>
-                <select v-model.number="(config as any)[task.minuteKey]" :disabled="!(config as any)[task.enabledKey]">
+                <span class="font-bold text-gray-500">:</span>
+                <select v-model.number="(config as any)[task.minuteKey]" :disabled="!(config as any)[task.enabledKey]" class="frox-select-sm w-[60px]">
                   <option v-for="m in 60" :key="m - 1" :value="m - 1">{{ String(m - 1).padStart(2, '0') }}</option>
                 </select>
               </div>
@@ -1071,305 +1176,441 @@ onMounted(async () => {
           </div>
         </div>
 
-        <div class="settings-section">
-          <h2 class="section-title">AI (OpenRouter)</h2>
-          <div class="field">
-            <label>OpenRouter API Key</label>
-            <p v-if="config.openrouter_api_key_masked" class="field-hint" style="margin-bottom: .35rem">
-              Текущий ключ: <code>{{ config.openrouter_api_key_masked }}</code>
+        <div class="frox-card p-5 mb-5">
+          <h3 class="text-header-7 font-semibold text-gray-1100 dark:text-gray-dark-1100 mb-4">AI (OpenRouter)</h3>
+          <div class="frox-field">
+            <label class="frox-field-label">OpenRouter API Key</label>
+            <p v-if="config.openrouter_api_key_masked" class="text-mini-desc text-gray-400 mb-1">
+              Текущий: <code class="px-1 py-0.5 rounded bg-gray-100 dark:bg-gray-dark-100 text-mini-desc">{{ config.openrouter_api_key_masked }}</code>
             </p>
-            <input type="password" v-model="config.openrouter_api_key" :placeholder="config.openrouter_api_key_set ? 'Введите новый ключ для замены' : 'sk-or-v1-...'" />
+            <input type="password" v-model="config.openrouter_api_key" :placeholder="config.openrouter_api_key_set ? 'Новый ключ для замены' : 'sk-or-v1-...'" class="frox-input" />
           </div>
         </div>
 
-        <button class="btn btn-primary" @click="saveConfig" :disabled="configSaving">
+        <button class="frox-btn frox-btn-brand" @click="saveConfig" :disabled="configSaving">
+          <Check :size="16" />
           {{ configSaving ? 'Сохранение...' : 'Сохранить настройки' }}
         </button>
       </div>
-    </div>
   </div>
 </template>
 
 <style scoped>
-.wb-page {
-  min-height: 100vh;
-  background: var(--bg-body);
-  padding: 2rem 1rem;
-}
-.wb-container {
-  max-width: 1100px;
-  margin: 0 auto;
-}
-.wb-header { margin-bottom: 1.5rem; }
-.page-title { font-size: 1.6rem; color: var(--text-primary); font-weight: 700; }
+.wb-analytics { font-family: 'Noto Sans', sans-serif; }
 
-/* Tabs */
-.tabs { display: flex; gap: 0; border-bottom: 2px solid var(--border); margin-bottom: 1.5rem; }
-.tab {
-  padding: .6rem 1.2rem; background: none; border: none; cursor: pointer;
-  color: var(--text-secondary); font-size: .95rem; border-bottom: 2px solid transparent;
-  margin-bottom: -2px; transition: all .15s; display: flex; align-items: center; gap: .4rem;
+/* Frox Card */
+.frox-card {
+  border-radius: 16px;
+  border: 1px solid var(--neutral-accent);
+  background: var(--neutral-bg);
 }
-.tab:hover { color: var(--text-primary); }
-.tab.active { color: var(--accent); border-bottom-color: var(--accent); font-weight: 600; }
-.tab-badge { background: var(--bg-input); color: var(--text-secondary); font-size: .75rem; padding: .1rem .45rem; border-radius: 10px; }
-.tab-badge-accent { background: var(--accent); color: var(--accent-text, #fff); }
-
-/* Toast */
-.toast { position: fixed; top: 1.2rem; right: 1.2rem; padding: .7rem 1.2rem; border-radius: 8px; font-size: .9rem; z-index: 100; cursor: pointer; }
-.toast-success { background: var(--success, #22c55e); color: #fff; }
-.toast-error { background: var(--danger, #ef4444); color: #fff; }
-.toast-enter-active, .toast-leave-active { transition: opacity .3s, transform .3s; }
-.toast-enter-from, .toast-leave-to { opacity: 0; transform: translateY(-10px); }
-
-/* Sections */
-.section { margin-bottom: 1.5rem; }
-.section-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: .75rem; flex-wrap: wrap; gap: .5rem; }
-.section-title { font-size: 1.1rem; color: var(--text-primary); font-weight: 600; margin: 0; }
-.empty { text-align: center; color: var(--text-muted); padding: 2rem; }
-
-/* Reports */
-.report-toggles { display: flex; gap: 1.5rem; margin-bottom: .75rem; }
-.toggle-label { display: flex; align-items: center; gap: .5rem; cursor: pointer; font-size: .85rem; color: var(--text-body); font-weight: 500; }
-.toggle-label input[type="checkbox"] { width: auto; accent-color: var(--accent); }
-.report-actions { display: flex; gap: .5rem; flex-wrap: wrap; }
-.reports-list { display: flex; flex-direction: column; gap: .5rem; }
-.report-card {
-  background: var(--bg-surface); border: 1px solid var(--border); border-radius: 8px;
-  padding: .75rem 1rem; cursor: pointer; transition: border-color .15s;
-}
-.report-card:hover { border-color: var(--text-muted); }
-.report-expanded { border-color: var(--accent); }
-.report-header { display: flex; align-items: center; gap: .6rem; flex-wrap: wrap; font-size: .88rem; }
-.report-type-badge {
-  padding: .15rem .5rem; border-radius: 4px; font-size: .75rem; font-weight: 600; text-transform: uppercase;
-}
-.report-type-daily { background: #6366f120; color: #6366f1; }
-.report-type-weekly { background: #22c55e20; color: #22c55e; }
-.report-period { font-weight: 600; color: var(--text-primary); }
-.report-status { font-size: .78rem; }
-.status-done { color: var(--success, #22c55e); }
-.status-generating { color: #eab308; }
-.status-error { color: var(--danger, #ef4444); }
-.report-date { margin-left: auto; font-size: .75rem; color: var(--text-muted); }
-.report-summary { font-size: .85rem; color: var(--text-secondary); margin-top: .4rem; }
-.report-content {
-  margin-top: .6rem; padding-top: .6rem; border-top: 1px solid var(--border);
-  font-size: .85rem; color: var(--text-body); line-height: 1.5; cursor: text;
-}
-.report-content b { font-weight: 600; }
-.report-content code { background: var(--bg-input); padding: .1rem .3rem; border-radius: 3px; font-size: .82rem; }
-
-/* Settings */
-.settings-section { margin-bottom: 1.5rem; }
-.settings-section .section-title { margin-bottom: .75rem; }
-.field { margin-bottom: .75rem; }
-.field label { display: block; font-size: .85rem; color: var(--text-secondary); margin-bottom: .3rem; }
-.field input, .field select, .field textarea {
-  width: 100%; padding: .5rem .7rem; border: 1px solid var(--border); border-radius: 6px;
-  background: var(--bg-input); color: var(--text-body); font-size: .88rem;
-}
-.field textarea { resize: vertical; }
-.field-hint { font-size: .78rem; color: var(--text-muted); margin-top: .25rem; }
-.field-success { font-size: .82rem; color: var(--success, #22c55e); margin-top: .25rem; }
-.field-error { font-size: .82rem; color: var(--danger, #ef4444); margin-top: .25rem; }
-.field-row { display: flex; gap: 1rem; flex-wrap: wrap; }
-.field-row > .field { flex: 1; min-width: 180px; }
-.field-row-inline { display: flex; gap: .5rem; align-items: center; }
-.field-row-inline input { flex: 1; }
-
-/* API Key */
-.api-key-row { display: flex; align-items: center; gap: .5rem; margin-bottom: .5rem; }
-.api-key-value { font-size: .85rem; padding: .4rem .6rem; background: var(--bg-input); border-radius: 6px; border: 1px solid var(--border); word-break: break-all; }
-
-/* Date range bar */
-.date-range-bar {
-  display: flex; align-items: center; gap: .75rem; flex-wrap: wrap;
-  background: var(--bg-surface); border: 1px solid var(--border); border-radius: 8px;
-  padding: .6rem 1rem;
-}
-.date-presets { display: flex; gap: .35rem; }
-.date-inputs { display: flex; align-items: center; gap: .4rem; }
-.date-inputs input[type="date"] {
-  padding: .35rem .5rem; border: 1px solid var(--border); border-radius: 6px;
-  background: var(--bg-input); color: var(--text-body); font-size: .85rem;
-}
-.date-sep { color: var(--text-muted); font-size: .85rem; }
-.date-compare-hint { font-size: .78rem; color: var(--text-muted); }
-
-/* Chart */
-.chart-metrics { display: flex; gap: .35rem; flex-wrap: wrap; margin-bottom: .75rem; }
-.chart-metric-btn {
-  padding: .3rem .7rem; border: 1px solid var(--border); border-radius: 6px; cursor: pointer;
-  background: var(--bg-surface); color: var(--text-secondary); font-size: .82rem; transition: all .15s;
-}
-.chart-metric-btn:hover { border-color: var(--text-muted); }
-.chart-metric-btn.active { font-weight: 600; }
-.chart-wrap {
-  background: var(--bg-surface); border: 1px solid var(--border); border-radius: 8px;
-  padding: .75rem; height: 260px;
+.dark .frox-card {
+  border-color: var(--dark-neutral-border);
+  background: var(--dark-neutral-bg);
 }
 
-/* KPI Grid */
-.kpi-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: .75rem; margin-bottom: .5rem; }
-.kpi-card {
-  background: var(--bg-surface); border: 1px solid var(--border); border-radius: 8px;
-  padding: .75rem 1rem; display: flex; flex-direction: column; gap: .2rem;
+/* Frox Stat Card */
+.frox-stat-card {
+  border-radius: 16px;
+  border: 1px solid var(--neutral-accent);
+  background: var(--neutral-bg);
+  padding: 16px 19px;
 }
-.kpi-label { font-size: .78rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: .03em; }
-.kpi-value { font-size: 1.4rem; font-weight: 700; color: var(--text-primary); }
-.kpi-delta { font-size: .8rem; color: var(--text-muted); }
-.kpi-delta-sm { font-size: .72rem; }
-.delta-up { color: var(--success, #22c55e); }
-.delta-down { color: var(--danger, #ef4444); }
-.stock-low { color: var(--danger, #ef4444); font-weight: 600; }
-.margin-low { color: #eab308; font-weight: 600; }
-
-/* Alerts */
-.alerts-list { display: flex; flex-direction: column; gap: .5rem; }
-.alert-card {
-  background: var(--bg-surface); border: 1px solid var(--border); border-radius: 8px;
-  padding: .75rem 1rem; display: flex; flex-direction: column; gap: .4rem;
+.dark .frox-stat-card {
+  border-color: var(--dark-neutral-border);
+  background: var(--dark-neutral-bg);
 }
-.alert-unread { border-left: 3px solid var(--accent); }
-.alert-critical { border-left-color: var(--danger, #ef4444); }
-.alert-warning { border-left-color: #eab308; }
-.alert-info { border-left-color: var(--accent); }
-.alert-header { display: flex; align-items: center; gap: .5rem; font-size: .9rem; }
-.alert-severity { font-weight: 700; font-size: .8rem; min-width: 20px; text-align: center; }
-.alert-critical .alert-severity { color: var(--danger, #ef4444); }
-.alert-warning .alert-severity { color: #eab308; }
-.alert-info .alert-severity { color: var(--accent); }
-.alert-date { margin-left: auto; font-size: .75rem; color: var(--text-muted); }
-.alert-desc { font-size: .85rem; color: var(--text-secondary); }
-
-/* Products table */
-.sortable { cursor: pointer; user-select: none; white-space: nowrap; }
-.sortable:hover { color: var(--text-primary); }
-.prod-per-page { display: flex; align-items: center; gap: .4rem; }
-.per-page-label { font-size: .82rem; color: var(--text-secondary); }
-.prod-per-page select {
-  padding: .25rem .4rem; border: 1px solid var(--border); border-radius: 6px;
-  background: var(--bg-input); color: var(--text-body); font-size: .82rem;
-}
-.prod-pagination { display: flex; align-items: center; justify-content: center; gap: .75rem; margin-top: .75rem; }
-.prod-pagination .page-info { font-size: .85rem; color: var(--text-secondary); }
-.products-table-wrap { overflow-x: auto; }
-.products-table {
-  width: 100%; border-collapse: collapse; font-size: .88rem;
-  background: var(--bg-surface); border: 1px solid var(--border); border-radius: 8px;
-}
-.products-table th, .products-table td {
-  padding: .6rem .75rem; text-align: left; border-bottom: 1px solid var(--border);
-}
-.products-table th { font-weight: 600; color: var(--text-secondary); font-size: .8rem; background: var(--bg-input); }
-.product-img { width: 40px; height: 40px; border-radius: 4px; object-fit: cover; }
-.product-article-row { display: flex; align-items: center; gap: .35rem; }
-.product-article-row span { font-weight: 600; color: var(--text-primary); }
-.wb-link { color: var(--text-muted); display: flex; transition: color .15s; }
-.wb-link:hover { color: var(--accent); }
-.product-article { font-weight: 600; color: var(--text-primary); }
-.product-nmid { font-size: .75rem; color: var(--text-muted); }
-.cost-input { width: 120px; padding: .3rem .5rem; border: 1px solid var(--border); border-radius: 4px; background: var(--bg-input); color: var(--text-body); font-size: .85rem; }
-.cost-zero { color: var(--text-muted); }
-.section-count { font-size: .8rem; color: var(--text-muted); font-weight: 400; margin-left: .3rem; }
-
-/* Expandable product rows */
-.product-row { cursor: pointer; transition: background .15s; }
-.product-row:hover { background: var(--bg-input); }
-.product-row-expanded { background: var(--bg-input); }
-.product-expand-row td { padding: 0 !important; border-bottom: 1px solid var(--border); }
-.product-expand {
-  padding: .75rem 1rem; background: var(--bg-body);
-  display: flex; align-items: flex-start; justify-content: space-between; gap: .75rem; flex-wrap: wrap;
-}
-.expand-fields { display: flex; gap: 1.5rem; flex-wrap: wrap; align-items: center; }
-.expand-field { display: flex; align-items: center; gap: .4rem; font-size: .85rem; }
-.expand-label { color: var(--text-muted); font-size: .78rem; }
-.expand-actions { display: flex; gap: .4rem; align-items: center; }
-.btn-danger-text { color: var(--danger, #ef4444); }
-.btn-danger-text:hover { background: var(--danger, #ef4444); color: #fff; }
-
-/* Bulk import */
-.bulk-import {
-  background: var(--bg-surface); border: 1px solid var(--border); border-radius: 8px;
-  padding: 1rem; margin-bottom: 1rem;
+.frox-stat-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
 }
 
-/* Toolbar */
-.toolbar-right { display: flex; align-items: center; gap: .5rem; }
+/* KPI colors */
+.kpi-up { color: var(--green-accent); }
+.kpi-down { color: var(--red-accent); }
+.kpi-warn { color: var(--yellow-accent); }
+
+/* Toolbar card */
+.frox-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  margin-bottom: 20px;
+  gap: 12px;
+  flex-wrap: wrap;
+}
 
 /* Buttons */
-.btn { padding: .5rem 1rem; border: none; border-radius: 6px; cursor: pointer; font-size: .88rem; transition: opacity .15s; }
-.btn:disabled { opacity: .5; cursor: not-allowed; }
-.btn-primary { background: var(--accent); color: var(--accent-text, #fff); }
-.btn-secondary { background: var(--bg-input); color: var(--text-body); border: 1px solid var(--border); }
-.btn-sm { padding: .35rem .7rem; font-size: .82rem; }
-.btn-icon { background: none; border: none; cursor: pointer; font-size: .9rem; color: var(--text-muted); padding: .2rem; }
-.btn-icon:hover { color: var(--text-primary); }
-.btn-icon-danger:hover { color: #e74c3c; }
-.actions-cell { display: flex; gap: .3rem; align-items: center; }
-
-/* Product reviews in expanded row */
-.product-reviews { width: 100%; margin-top: .75rem; padding-top: .75rem; border-top: 1px solid var(--border); }
-.product-reviews-header { display: flex; align-items: center; gap: .4rem; margin-bottom: .5rem; }
-.reviews-count { font-size: .75rem; color: var(--text-muted); background: var(--bg-input); padding: .1rem .4rem; border-radius: 10px; }
-.reviews-loading, .reviews-empty { font-size: .82rem; color: var(--text-muted); padding: .3rem 0; }
-.reviews-list { display: flex; flex-direction: column; gap: .5rem; max-height: 400px; overflow-y: auto; }
-.review-card {
-  background: var(--bg-surface); border: 1px solid var(--border); border-radius: 6px;
-  padding: .5rem .75rem; font-size: .84rem;
+.frox-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 20px;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+  transition: all 0.2s;
+  font-family: inherit;
+  white-space: nowrap;
 }
-.review-negative { border-left: 3px solid var(--danger, #ef4444); }
-.review-new { border-left: 3px solid var(--accent); }
-.review-top { display: flex; align-items: center; gap: .5rem; flex-wrap: wrap; margin-bottom: .3rem; }
-.review-rating { font-size: .82rem; letter-spacing: 1px; }
-.rating-high { color: #22c55e; }
-.rating-low { color: var(--danger, #ef4444); }
-.review-author { font-weight: 600; color: var(--text-primary); font-size: .8rem; }
-.review-date { font-size: .75rem; color: var(--text-muted); }
-.review-sentiment { font-size: .72rem; padding: .1rem .4rem; border-radius: 4px; font-weight: 600; }
-.sentiment-positive { background: #22c55e20; color: #22c55e; }
-.sentiment-negative { background: #ef444420; color: #ef4444; }
-.sentiment-neutral { background: #6366f120; color: #6366f1; }
-.review-new-badge { font-size: .68rem; padding: .1rem .35rem; border-radius: 4px; background: var(--accent); color: #fff; font-weight: 600; text-transform: uppercase; }
-.review-text { color: var(--text-body); line-height: 1.45; margin-bottom: .3rem; }
-.review-response { font-size: .8rem; color: var(--text-secondary); background: var(--bg-input); padding: .4rem .6rem; border-radius: 4px; margin-top: .3rem; line-height: 1.4; }
-.review-analyze-btn { margin-top: .3rem; }
-.reviews-list-full { max-height: none; }
-.review-product-badge { font-size: .72rem; background: var(--bg-input); color: var(--text-secondary); padding: .1rem .4rem; border-radius: 4px; margin-left: auto; }
-.review-product-link {
-  font-size: .72rem; background: var(--bg-input); color: var(--accent, #6366f1); padding: .1rem .4rem;
-  border-radius: 4px; margin-left: auto; text-decoration: none;
+.frox-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.frox-btn-sm { padding: 7px 14px; font-size: 13px; }
+.frox-btn-brand {
+  background: var(--color-brands);
+  color: #fff;
+  border: 2px solid var(--color-brands);
 }
-.review-product-link:hover { text-decoration: underline; }
-
-/* Filters bar (reviews tab) */
-.filters-bar {
-  display: flex; gap: .5rem; flex-wrap: wrap; align-items: center;
-  background: var(--bg-surface); border: 1px solid var(--border); border-radius: 8px;
-  padding: .6rem .75rem;
+.frox-btn-brand:hover:not(:disabled) { opacity: 0.9; }
+.frox-btn-outline {
+  background: transparent;
+  color: var(--gray-500);
+  border: 1px solid var(--neutral-accent);
 }
-.filters-bar select {
-  padding: .35rem .5rem; border: 1px solid var(--border); border-radius: 6px;
-  background: var(--bg-input); color: var(--text-body); font-size: .82rem; min-width: 120px;
+.dark .frox-btn-outline {
+  color: var(--dark-gray-500);
+  border-color: var(--dark-neutral-border);
+}
+.frox-btn-outline:hover:not(:disabled) {
+  background: var(--gray-100);
+  color: var(--gray-800);
+}
+.dark .frox-btn-outline:hover:not(:disabled) {
+  background: var(--dark-gray-200);
+  color: var(--dark-gray-900);
+}
+.frox-btn-danger {
+  color: var(--red-accent);
+  border-color: var(--red-accent);
+}
+.frox-btn-danger:hover:not(:disabled) {
+  background: var(--red-accent);
+  color: #fff;
 }
 
-/* Schedule grid */
-.schedule-grid { display: flex; flex-direction: column; gap: .5rem; }
-.schedule-row {
-  display: flex; align-items: center; justify-content: space-between; gap: 1rem;
-  background: var(--bg-surface); border: 1px solid var(--border); border-radius: 8px;
-  padding: .6rem 1rem;
+/* Chip (chart metrics) */
+.frox-chip {
+  padding: 6px 14px;
+  border: 1px solid var(--neutral-accent);
+  border-radius: 8px;
+  cursor: pointer;
+  background: var(--neutral-bg);
+  color: var(--gray-500);
+  font-size: 13px;
+  font-weight: 500;
+  transition: all 0.15s;
+  font-family: inherit;
 }
-.schedule-toggle { display: flex; align-items: center; }
-.schedule-toggle input[type="checkbox"] { cursor: pointer; accent-color: var(--accent, #6366f1); }
-.schedule-label { font-size: .88rem; color: var(--text-primary); font-weight: 500; flex: 1; }
-.schedule-disabled { opacity: .45; }
-.schedule-time { display: flex; align-items: center; gap: .3rem; }
-.schedule-time select {
-  width: 60px; padding: .35rem .4rem; border: 1px solid var(--border); border-radius: 6px;
-  background: var(--bg-input); color: var(--text-body); font-size: .88rem; text-align: center;
+.dark .frox-chip { border-color: var(--dark-neutral-border); background: var(--dark-neutral-bg); color: var(--dark-gray-500); }
+.frox-chip:hover { border-color: var(--gray-400); }
+.frox-chip-active { font-weight: 600; }
+
+/* Date input */
+.frox-date-input {
+  padding: 6px 10px;
+  border: 1px solid var(--neutral-accent);
+  border-radius: 8px;
+  background: var(--neutral-bg);
+  color: var(--gray-1100);
+  font-size: 13px;
+  font-family: inherit;
 }
-.schedule-colon { font-weight: 700; color: var(--text-secondary); font-size: 1rem; }
+.dark .frox-date-input {
+  border-color: var(--dark-neutral-border);
+  background: var(--dark-neutral-bg);
+  color: var(--dark-gray-1100);
+}
+
+/* Select small */
+.frox-select-sm {
+  padding: 6px 10px;
+  border: 1px solid var(--neutral-accent);
+  border-radius: 8px;
+  background: var(--neutral-bg);
+  color: var(--gray-1100);
+  font-size: 13px;
+  font-family: inherit;
+}
+.dark .frox-select-sm {
+  border-color: var(--dark-neutral-border);
+  background: var(--dark-neutral-bg);
+  color: var(--dark-gray-1100);
+}
+
+/* Table */
+.frox-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+.frox-table th {
+  padding: 12px 16px;
+  text-align: left;
+  font-weight: 600;
+  color: var(--gray-500);
+  font-size: 12px;
+  border-bottom: 1px solid var(--neutral-accent);
+  background: var(--neutral-bg);
+}
+.dark .frox-table th {
+  color: var(--dark-gray-500);
+  border-color: var(--dark-neutral-border);
+  background: var(--dark-neutral-bg);
+}
+.frox-th-sort {
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+}
+.frox-th-sort:hover { color: var(--gray-1100); }
+.dark .frox-th-sort:hover { color: var(--dark-gray-1100); }
+
+.frox-table td {
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--neutral-accent);
+  color: var(--gray-1100);
+}
+.dark .frox-table td {
+  border-color: var(--dark-neutral-border);
+  color: var(--dark-gray-1100);
+}
+.frox-row { cursor: pointer; transition: background 0.15s; }
+.frox-row:hover { background: var(--gray-100); }
+.dark .frox-row:hover { background: var(--dark-gray-100); }
+.frox-row-active { background: var(--gray-100); }
+.dark .frox-row-active { background: var(--dark-gray-100); }
+
+/* Expand panel */
+.frox-expand-panel {
+  padding: 16px 20px;
+  background: var(--gray-100);
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  border-bottom: 1px solid var(--neutral-accent);
+}
+.dark .frox-expand-panel {
+  background: var(--dark-gray-100);
+  border-color: var(--dark-neutral-border);
+}
+.frox-expand-field {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
+  color: var(--gray-1100);
+}
+.dark .frox-expand-field { color: var(--dark-gray-1100); }
+.frox-expand-label {
+  font-size: 12px;
+  color: var(--gray-400);
+  font-weight: 500;
+}
+.dark .frox-expand-label { color: var(--dark-gray-400); }
+
+/* Inline input */
+.frox-input-inline {
+  width: 120px;
+  padding: 5px 10px;
+  border: 1px solid var(--neutral-accent);
+  border-radius: 6px;
+  background: var(--neutral-bg);
+  color: var(--gray-1100);
+  font-size: 13px;
+  font-family: inherit;
+}
+.dark .frox-input-inline {
+  border-color: var(--dark-neutral-border);
+  background: var(--dark-neutral-bg);
+  color: var(--dark-gray-1100);
+}
+
+/* Full input */
+.frox-input {
+  width: 100%;
+  padding: 10px 14px;
+  border: 1px solid var(--neutral-accent);
+  border-radius: 10px;
+  background: var(--gray-100);
+  color: var(--gray-1100);
+  font-size: 14px;
+  font-family: inherit;
+  outline: none;
+  transition: border-color 0.2s;
+}
+.dark .frox-input {
+  border-color: var(--dark-neutral-border);
+  background: var(--dark-gray-100);
+  color: var(--dark-gray-1100);
+}
+.frox-input:focus { border-color: var(--color-brands); }
+.frox-input::placeholder { color: var(--gray-300); font-weight: 500; }
+.dark .frox-input::placeholder { color: var(--dark-gray-300); }
+
+/* Field */
+.frox-field { margin-bottom: 8px; }
+.frox-field-label {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--gray-500);
+  margin-bottom: 6px;
+}
+.dark .frox-field-label { color: var(--dark-gray-500); }
+
+/* Badge count */
+.frox-badge-count {
+  font-size: 11px;
+  padding: 1px 8px;
+  border-radius: 10px;
+  background: var(--gray-100);
+  color: var(--gray-500);
+  font-weight: 600;
+}
+.dark .frox-badge-count { background: var(--dark-gray-200); color: var(--dark-gray-500); }
+
+.frox-badge-new {
+  font-size: 10px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: var(--color-brands);
+  color: #fff;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+/* Review card */
+.frox-review-card {
+  border: 1px solid var(--neutral-accent);
+  border-radius: 10px;
+  padding: 12px 16px;
+  background: var(--neutral-bg);
+}
+.dark .frox-review-card {
+  border-color: var(--dark-neutral-border);
+  background: var(--dark-neutral-bg);
+}
+.frox-review-negative { border-left: 3px solid var(--red-accent); }
+.frox-review-new { border-left: 3px solid var(--color-brands); }
+
+/* Sentiment badge */
+.frox-sentiment {
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-weight: 600;
+}
+.frox-sentiment-positive { background: rgba(80, 209, 178, 0.15); color: var(--green-accent); }
+.frox-sentiment-negative { background: rgba(226, 55, 56, 0.15); color: var(--red-accent); }
+.frox-sentiment-neutral { background: rgba(115, 100, 219, 0.15); color: var(--color-brands); }
+
+/* Alerts */
+.frox-alert {
+  border: 1px solid var(--neutral-accent);
+  border-radius: 10px;
+  padding: 12px 16px;
+  background: var(--neutral-bg);
+}
+.dark .frox-alert {
+  border-color: var(--dark-neutral-border);
+  background: var(--dark-neutral-bg);
+}
+.frox-alert-unread { border-left: 3px solid var(--color-brands); }
+.frox-alert-critical.frox-alert-unread { border-left-color: var(--red-accent); }
+.frox-alert-warning.frox-alert-unread { border-left-color: var(--yellow-accent); }
+
+/* Report card */
+.frox-report-card {
+  border: 1px solid var(--neutral-accent);
+  border-radius: 10px;
+  padding: 14px 18px;
+  cursor: pointer;
+  transition: border-color 0.15s;
+  background: var(--neutral-bg);
+}
+.dark .frox-report-card { border-color: var(--dark-neutral-border); background: var(--dark-neutral-bg); }
+.frox-report-card:hover { border-color: var(--gray-400); }
+.frox-report-expanded { border-color: var(--color-brands); }
+
+.frox-report-badge {
+  padding: 3px 10px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+.frox-report-daily { background: rgba(115, 100, 219, 0.12); color: var(--color-brands); }
+.frox-report-weekly { background: rgba(80, 209, 178, 0.12); color: var(--green-accent); }
+
+.frox-status { font-size: 12px; font-weight: 600; }
+.frox-status-done { color: var(--green-accent); }
+.frox-status-generating { color: var(--yellow-accent); }
+.frox-status-error { color: var(--red-accent); }
+
+/* Schedule row */
+.frox-schedule-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 12px 16px;
+  border: 1px solid var(--neutral-accent);
+  border-radius: 10px;
+  background: var(--neutral-bg);
+}
+.dark .frox-schedule-row { border-color: var(--dark-neutral-border); background: var(--dark-neutral-bg); }
+
+/* Toggle label */
+.frox-toggle-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--gray-1100);
+}
+.dark .frox-toggle-label { color: var(--dark-gray-1100); }
+.frox-checkbox { accent-color: var(--color-brands); cursor: pointer; }
+
+/* Empty state */
+.frox-empty {
+  text-align: center;
+  color: var(--gray-400);
+  padding: 32px;
+  font-size: 14px;
+}
+.dark .frox-empty { color: var(--dark-gray-400); }
+
+/* Toast */
+.frox-toast {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  padding: 12px 20px;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 500;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.15);
+}
+.frox-toast-success { background: var(--green-accent); color: #fff; }
+.frox-toast-error { background: var(--red-accent); color: #fff; }
+.toast-enter-active, .toast-leave-active { transition: opacity 0.3s, transform 0.3s; }
+.toast-enter-from, .toast-leave-to { opacity: 0; transform: translateY(-10px); }
+
+/* Spin animation */
+@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+.animate-spin { animation: spin 1s linear infinite; }
 </style>

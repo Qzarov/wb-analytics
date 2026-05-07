@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { api } from '@/api'
+import { Save, Send, Bell, Check, AlertCircle, Info } from 'lucide-vue-next'
 
 const loading = ref(true)
 const saving = ref(false)
@@ -51,119 +52,316 @@ async function testAlert() {
 </script>
 
 <template>
-  <div class="settings-page">
-    <div class="settings-container">
-      <h1 class="page-title">Настройки алертов</h1>
-      <p class="page-desc">Глобальный канал уведомлений об ошибках и перезапусках сервисов. Алерты приходят в Telegram.</p>
+  <div class="wb-analytics">
+    <!-- Header -->
+    <div class="flex items-center justify-between mb-1">
+      <h2 class="font-bold text-[28px] leading-[35px] text-gray-1100 dark:text-gray-dark-1100">Настройки алертов</h2>
+    </div>
+    <div class="flex items-center text-xs text-gray-500 dark:text-gray-dark-500 gap-x-[11px] mb-7">
+      <span>Управление</span>
+      <span class="text-gray-300">/</span>
+      <span style="color: var(--color-brands)">Алерты</span>
+    </div>
 
-      <div v-if="loading" class="loading">Загрузка...</div>
-      <div v-else-if="error" class="form-error">{{ error }}</div>
-
-      <form v-else class="settings-form" @submit.prevent="save">
-        <div class="form-group">
-          <label class="form-label">Telegram Bot Token</label>
-          <input
-            v-model="form.alert_bot_token"
-            type="text"
-            class="form-input"
-            placeholder="123456:ABC-DEF..."
-            autocomplete="off"
-          />
-          <span class="form-hint">Токен бота, который будет отправлять алерты</span>
+    <div class="frox-grid">
+      <!-- Left: Form -->
+      <div class="frox-card">
+        <div class="frox-card-header">
+          <Bell :size="18" class="frox-card-icon" />
+          <div>
+            <h3 class="frox-card-title">Telegram-алерты</h3>
+            <p class="frox-card-desc">Глобальный канал уведомлений об ошибках и перезапусках сервисов</p>
+          </div>
         </div>
 
-        <div class="form-group">
-          <label class="form-label">Telegram Chat ID</label>
-          <input
-            v-model="form.alert_chat_id"
-            type="text"
-            class="form-input"
-            placeholder="-1001234567890"
-            autocomplete="off"
-          />
-          <span class="form-hint">ID чата или канала для алертов</span>
-        </div>
+        <div v-if="loading" class="frox-empty">Загрузка...</div>
+        <div v-else-if="error" class="frox-alert frox-alert-error">{{ error }}</div>
 
-        <div class="form-group">
-          <label class="form-label toggle-label">
+        <form v-else class="frox-form" @submit.prevent="save">
+          <div class="frox-field">
+            <label class="frox-label">Telegram Bot Token</label>
             <input
-              type="checkbox"
-              :checked="form.alert_enabled === '1'"
-              @change="form.alert_enabled = ($event.target as HTMLInputElement).checked ? '1' : '0'"
+              v-model="form.alert_bot_token"
+              type="text"
+              class="frox-input"
+              placeholder="123456:ABC-DEF..."
+              autocomplete="off"
             />
-            <span class="toggle-text">Алерты включены</span>
-          </label>
-        </div>
+            <span class="frox-hint">Токен бота, который будет отправлять алерты</span>
+          </div>
 
-        <div class="form-actions">
-          <button type="submit" class="btn btn-primary" :disabled="saving">
-            {{ saving ? 'Сохранение...' : 'Сохранить' }}
-          </button>
-          <button type="button" class="btn btn-secondary" :disabled="testing" @click="testAlert">
-            {{ testing ? 'Отправка...' : 'Тестовый алерт' }}
-          </button>
-        </div>
-      </form>
+          <div class="frox-field">
+            <label class="frox-label">Telegram Chat ID</label>
+            <input
+              v-model="form.alert_chat_id"
+              type="text"
+              class="frox-input"
+              placeholder="-1001234567890"
+              autocomplete="off"
+            />
+            <span class="frox-hint">ID чата или канала для алертов</span>
+          </div>
 
-      <div class="info-block">
-        <h3 class="info-title">Что приходит в алерты</h3>
-        <ul class="info-list">
+          <div class="frox-field">
+            <label class="frox-toggle-label">
+              <span class="frox-toggle-track" :class="{ active: form.alert_enabled === '1' }">
+                <input
+                  type="checkbox"
+                  class="frox-toggle-input"
+                  :checked="form.alert_enabled === '1'"
+                  @change="form.alert_enabled = ($event.target as HTMLInputElement).checked ? '1' : '0'"
+                />
+                <span class="frox-toggle-thumb"></span>
+              </span>
+              Алерты включены
+            </label>
+          </div>
+
+          <div class="flex gap-3 mt-2">
+            <button type="submit" class="frox-btn frox-btn-brand" :disabled="saving">
+              <Save :size="14" />
+              {{ saving ? 'Сохранение...' : 'Сохранить' }}
+            </button>
+            <button type="button" class="frox-btn frox-btn-outline" :disabled="testing" @click="testAlert">
+              <Send :size="14" />
+              {{ testing ? 'Отправка...' : 'Тестовый алерт' }}
+            </button>
+          </div>
+        </form>
+      </div>
+
+      <!-- Right: Info -->
+      <div class="frox-card frox-info-card">
+        <div class="frox-card-header">
+          <Info :size="18" class="frox-card-icon" />
+          <h3 class="frox-card-title" style="margin-bottom: 0;">Что приходит в алерты</h3>
+        </div>
+        <ul class="frox-info-list">
           <li>Необработанные ошибки на сервере (продукт, среда, текст ошибки)</li>
           <li>Uncaught exceptions и unhandled rejections</li>
           <li>Перезапуск сервиса</li>
         </ul>
+        <div class="frox-info-note">
+          <AlertCircle :size="14" />
+          <span>Алерты отправляются только при включённой настройке и заполненных полях бота</span>
+        </div>
       </div>
-
-      <Teleport to="body">
-        <Transition name="toast">
-          <div v-if="toast" class="toast" :class="'toast-' + toast.type">{{ toast.text }}</div>
-        </Transition>
-      </Teleport>
     </div>
+
+    <!-- Toast -->
+    <Teleport to="body">
+      <Transition name="toast">
+        <div v-if="toast" class="frox-toast" :class="'frox-toast-' + toast.type" @click="toast = null">
+          <Check v-if="toast.type === 'success'" :size="16" />
+          <AlertCircle v-else :size="16" />
+          {{ toast.text }}
+        </div>
+      </Transition>
+    </Teleport>
   </div>
 </template>
 
 <style scoped>
-.settings-page { padding: 2rem 1rem; display: flex; justify-content: center; }
-.settings-container { width: 100%; max-width: 600px; }
-.page-title { color: var(--text-primary); font-size: 1.5rem; font-weight: 700; margin-bottom: 0.5rem; }
-.page-desc { color: var(--text-secondary); font-size: 0.9rem; margin-bottom: 2rem; line-height: 1.5; }
-.loading { color: var(--text-secondary); text-align: center; padding: 2rem; }
-.form-error { background: var(--danger-soft); border: 1px solid var(--danger-border); color: var(--danger); padding: 0.6rem 1rem; border-radius: 8px; font-size: 0.85rem; }
-
-.settings-form { display: flex; flex-direction: column; gap: 1.25rem; }
-.form-group { display: flex; flex-direction: column; gap: 0.35rem; }
-.form-label { color: var(--text-primary); font-size: 0.85rem; font-weight: 600; }
-.form-input {
-  background: var(--bg-input);
-  border: 1px solid var(--border);
-  color: var(--text-body);
-  padding: 0.6rem 0.75rem;
-  border-radius: 8px;
-  font-size: 0.9rem;
-  transition: border-color 0.2s;
+/* Grid */
+.frox-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+  align-items: start;
 }
-.form-input:focus { outline: none; border-color: var(--accent); }
-.form-hint { color: var(--text-muted); font-size: 0.78rem; }
+@media (max-width: 900px) {
+  .frox-grid { grid-template-columns: 1fr; }
+}
 
-.toggle-label { display: flex; align-items: center; gap: 0.5rem; cursor: pointer; }
-.toggle-text { font-weight: 500; }
+/* Card */
+.frox-card {
+  background: var(--neutral-bg);
+  border: 1px solid var(--neutral-accent);
+  border-radius: 14px;
+  padding: 24px;
+}
+.dark .frox-card {
+  background: var(--dark-neutral-bg);
+  border-color: var(--dark-neutral-border);
+}
+.frox-card-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 24px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--neutral-accent);
+}
+.dark .frox-card-header { border-color: var(--dark-neutral-border); }
+.frox-card-icon { color: var(--color-brands); flex-shrink: 0; margin-top: 2px; }
+.frox-card-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--gray-1100);
+  margin-bottom: 4px;
+}
+.dark .frox-card-title { color: var(--dark-gray-1100); }
+.frox-card-desc {
+  font-size: 13px;
+  color: var(--gray-500);
+  margin: 0;
+}
+.dark .frox-card-desc { color: var(--dark-gray-500); }
 
-.form-actions { display: flex; gap: 0.75rem; margin-top: 0.5rem; }
-.btn { padding: 0.6rem 1.25rem; border-radius: 8px; font-size: 0.9rem; font-weight: 600; border: none; cursor: pointer; transition: all 0.2s; }
-.btn:disabled { opacity: 0.6; cursor: not-allowed; }
-.btn-primary { background: var(--accent); color: #fff; }
-.btn-primary:hover:not(:disabled) { filter: brightness(1.1); }
-.btn-secondary { background: var(--bg-surface); color: var(--text-body); border: 1px solid var(--border); }
-.btn-secondary:hover:not(:disabled) { background: var(--bg-hover); }
+/* Form */
+.frox-form { display: flex; flex-direction: column; gap: 18px; }
+.frox-field { display: flex; flex-direction: column; gap: 6px; }
+.frox-label { font-size: 13px; color: var(--gray-500); font-weight: 600; }
+.dark .frox-label { color: var(--dark-gray-500); }
+.frox-input {
+  background: var(--gray-100);
+  border: 1px solid var(--neutral-accent);
+  border-radius: 10px;
+  padding: 10px 14px;
+  color: var(--gray-1100);
+  font-size: 14px;
+  font-family: inherit;
+  outline: none;
+  transition: border-color 0.15s;
+}
+.dark .frox-input {
+  background: var(--dark-gray-100);
+  border-color: var(--dark-neutral-border);
+  color: var(--dark-gray-1100);
+}
+.frox-input:focus { border-color: var(--color-brands); }
+.frox-hint { color: var(--gray-400); font-size: 12px; }
+.dark .frox-hint { color: var(--dark-gray-400); }
 
-.info-block { margin-top: 2.5rem; padding: 1.25rem; background: var(--bg-surface); border: 1px solid var(--border); border-radius: 10px; }
-.info-title { color: var(--text-primary); font-size: 0.9rem; font-weight: 600; margin-bottom: 0.75rem; }
-.info-list { color: var(--text-secondary); font-size: 0.85rem; line-height: 1.8; padding-left: 1.25rem; margin: 0; }
+/* Toggle */
+.frox-toggle-label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 14px;
+  color: var(--gray-1100);
+  cursor: pointer;
+  user-select: none;
+  font-weight: 500;
+}
+.dark .frox-toggle-label { color: var(--dark-gray-1100); }
+.frox-toggle-input { position: absolute; opacity: 0; width: 0; height: 0; }
+.frox-toggle-track {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  width: 40px;
+  height: 22px;
+  border-radius: 11px;
+  background: var(--gray-300);
+  transition: background 0.2s;
+  flex-shrink: 0;
+}
+.dark .frox-toggle-track { background: var(--dark-gray-300); }
+.frox-toggle-track.active { background: var(--color-brands); }
+.frox-toggle-thumb {
+  position: absolute;
+  left: 2px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #fff;
+  transition: transform 0.2s;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.15);
+}
+.frox-toggle-track.active .frox-toggle-thumb { transform: translateX(18px); }
 
-.toast { position: fixed; bottom: 2rem; right: 2rem; padding: 0.75rem 1.25rem; border-radius: 8px; font-size: 0.9rem; font-weight: 500; z-index: 9999; box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
-.toast-success { background: var(--success-bg, #16a34a); color: #fff; }
-.toast-error { background: var(--danger, #ef4444); color: #fff; }
-.toast-enter-active, .toast-leave-active { transition: all 0.3s; }
-.toast-enter-from, .toast-leave-to { opacity: 0; transform: translateY(10px); }
+/* Buttons */
+.frox-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: none;
+  border-radius: 10px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s;
+  text-decoration: none;
+  font-family: inherit;
+  padding: 10px 18px;
+  font-size: 14px;
+}
+.frox-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.frox-btn-brand { background: var(--color-brands); color: #fff; }
+.frox-btn-brand:hover:not(:disabled) { opacity: 0.9; }
+.frox-btn-outline {
+  background: transparent;
+  border: 1px solid var(--neutral-accent);
+  color: var(--gray-600);
+}
+.dark .frox-btn-outline {
+  border-color: var(--dark-neutral-border);
+  color: var(--dark-gray-600);
+}
+.frox-btn-outline:hover:not(:disabled) {
+  border-color: var(--color-brands);
+  color: var(--color-brands);
+}
+
+/* Info card */
+.frox-info-list {
+  color: var(--gray-600);
+  font-size: 14px;
+  line-height: 2;
+  padding-left: 20px;
+  margin: 0 0 20px 0;
+}
+.dark .frox-info-list { color: var(--dark-gray-600); }
+.frox-info-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 12px 16px;
+  background: var(--bg-10);
+  border-radius: 10px;
+  font-size: 13px;
+  color: var(--violet-accent);
+}
+
+/* Alert */
+.frox-alert {
+  padding: 10px 16px;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.frox-alert-error { background: var(--bg-3); color: var(--red-accent); }
+
+/* Empty */
+.frox-empty {
+  text-align: center;
+  color: var(--gray-400);
+  padding: 32px;
+  font-size: 14px;
+}
+.dark .frox-empty { color: var(--dark-gray-400); }
+
+/* Toast */
+.frox-toast {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  padding: 12px 20px;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 500;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.15);
+}
+.frox-toast-success { background: var(--green-accent); color: #fff; }
+.frox-toast-error { background: var(--red-accent); color: #fff; }
+.toast-enter-active, .toast-leave-active { transition: opacity 0.3s, transform 0.3s; }
+.toast-enter-from, .toast-leave-to { opacity: 0; transform: translateY(-10px); }
 </style>

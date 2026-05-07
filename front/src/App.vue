@@ -1,12 +1,13 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import { RouterView, RouterLink, useRouter } from 'vue-router'
+import { RouterView, RouterLink, useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useThemeStore, THEMES } from '@/stores/theme'
 
 const auth = useAuthStore()
 const theme = useThemeStore()
 const router = useRouter()
+const route = useRoute()
 
 const showLanding = import.meta.env.VITE_SHOW_LANDING !== 'false'
 
@@ -18,6 +19,10 @@ const hasAnalytics = computed(() => {
   } catch { return false }
 })
 
+const isDashboardRoute = computed(() =>
+  route.path.startsWith('/wb-analytics') || route.path.startsWith('/admin')
+)
+
 function logout() {
   auth.logout()
   router.push('/')
@@ -26,50 +31,58 @@ function logout() {
 
 <template>
   <div class="app">
-    <header class="header">
-      <nav class="nav">
-        <RouterLink to="/" class="logo">WB Аналитика</RouterLink>
-        <div class="nav-links">
-          <RouterLink v-if="showLanding" to="/">Главная</RouterLink>
-
-          <template v-if="!auth.isAuth">
-            <RouterLink to="/register">Регистрация</RouterLink>
-            <RouterLink to="/login">Вход</RouterLink>
-          </template>
-
-          <RouterLink v-if="auth.isAuth && hasAnalytics" to="/wb-analytics">Аналитика</RouterLink>
-
-          <template v-if="auth.isAdmin">
-            <span class="nav-divider"></span>
-            <RouterLink to="/admin" class="admin-link">Админка</RouterLink>
-          </template>
-
-          <span class="nav-divider"></span>
-
-          <div class="theme-switcher">
-            <button
-              v-for="t in THEMES"
-              :key="t.id"
-              class="theme-btn"
-              :class="{ active: theme.current === t.id, [t.id]: true }"
-              :title="t.label"
-              @click="theme.set(t.id)"
-            ></button>
-          </div>
-
-          <template v-if="auth.isAuth">
-            <RouterLink to="/profile" class="nav-user">{{ auth.user?.name }}</RouterLink>
-            <button class="nav-logout" @click="logout">Выход</button>
-          </template>
-        </div>
-      </nav>
-    </header>
-    <main class="main">
+    <!-- Dashboard routes use their own layout (DashboardLayout) -->
+    <template v-if="isDashboardRoute">
       <RouterView />
-    </main>
-    <footer class="footer">
-      <p>&copy; 2026 WB Аналитика</p>
-    </footer>
+    </template>
+
+    <!-- Public routes use the simple header/footer layout -->
+    <template v-else>
+      <header class="header">
+        <nav class="nav">
+          <RouterLink to="/" class="logo">WB Аналитика</RouterLink>
+          <div class="nav-links">
+            <RouterLink v-if="showLanding" to="/">Главная</RouterLink>
+
+            <template v-if="!auth.isAuth">
+              <RouterLink to="/register">Регистрация</RouterLink>
+              <RouterLink to="/login">Вход</RouterLink>
+            </template>
+
+            <RouterLink v-if="auth.isAuth && hasAnalytics" to="/wb-analytics">Аналитика</RouterLink>
+
+            <template v-if="auth.isAdmin">
+              <span class="nav-divider"></span>
+              <RouterLink to="/admin" class="admin-link">Админка</RouterLink>
+            </template>
+
+            <span class="nav-divider"></span>
+
+            <div class="theme-switcher">
+              <button
+                v-for="t in THEMES"
+                :key="t.id"
+                class="theme-btn"
+                :class="{ active: theme.current === t.id, [t.id]: true }"
+                :title="t.label"
+                @click="theme.set(t.id)"
+              ></button>
+            </div>
+
+            <template v-if="auth.isAuth">
+              <RouterLink to="/profile" class="nav-user">{{ auth.user?.name }}</RouterLink>
+              <button class="nav-logout" @click="logout">Выход</button>
+            </template>
+          </div>
+        </nav>
+      </header>
+      <main class="main">
+        <RouterView />
+      </main>
+      <footer class="footer">
+        <p>&copy; 2026 WB Аналитика</p>
+      </footer>
+    </template>
   </div>
 </template>
 
@@ -148,8 +161,6 @@ function logout() {
   border-color: var(--danger);
   color: var(--danger);
 }
-
-/* Theme switcher */
 .theme-switcher {
   display: flex;
   gap: 6px;
@@ -169,19 +180,10 @@ function logout() {
   box-shadow: 0 0 0 2px var(--accent-soft);
   transform: scale(1.15);
 }
-.theme-btn.dark-purple {
-  background: #7c3aed;
-}
-.theme-btn.dark-blue {
-  background: #3b82f6;
-}
-.theme-btn.light-green {
-  background: #16a34a;
-}
-.theme-btn.light-gray {
-  background: #a3a3a3;
-}
-
+.theme-btn.dark-purple { background: #7c3aed; }
+.theme-btn.dark-blue { background: #3b82f6; }
+.theme-btn.light-green { background: #16a34a; }
+.theme-btn.light-gray { background: #a3a3a3; }
 .main {
   min-height: calc(100vh - 64px - 60px);
 }
