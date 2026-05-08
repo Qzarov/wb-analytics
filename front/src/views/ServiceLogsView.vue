@@ -494,8 +494,8 @@ onMounted(async () => {
 .dark .row-error { background: rgba(239, 68, 68, 0.08); }
 .row-partial { background: rgba(245, 158, 11, 0.04); }
 .dark .row-partial { background: rgba(245, 158, 11, 0.08); }
-.row-selected { background: rgba(115, 100, 219, 0.06); }
-.dark .row-selected { background: rgba(115, 100, 219, 0.12); }
+.row-selected { background: rgba(34, 139, 34, 0.06); }
+.dark .row-selected { background: rgba(34, 139, 34, 0.12); }
 
 /* Code */
 .frox-code {

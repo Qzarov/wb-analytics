@@ -4,7 +4,7 @@
 
 /* ===== Frox Design System Variables ===== */
 :root {
-  --color-brands: #7364db;
+  --color-brands: #228B22;
 
   --gray-0: #ffffff;
   --gray-100: #f5f5fa;
@@ -40,7 +40,7 @@
 
   --blue-accent: #2775ff;
   --green-accent: #50d1b2;
-  --violet-accent: #7747ca;
+  --violet-accent: #1a7a1a;
   --orange-accent: #ec8c56;
   --yellow-accent: #ece663;
   --indigo-accent: #5415f1;
@@ -59,7 +59,7 @@
   --bg-7: #f0efeb;
   --bg-8: #dfe7fd;
   --bg-9: #d1ecfd;
-  --bg-10: #ddd3fa;
+  --bg-10: #d4edda;
 }
 
 /* ===== Light Theme (default) ===== */
@@ -76,10 +76,10 @@
   --text-body: #2e2e3a;
   --text-secondary: #656575;
   --text-muted: #9a9aaf;
-  --accent: #7364db;
-  --accent-hover: #6354c8;
-  --accent-soft: rgba(115,100,219,0.12);
-  --accent-text: #7364db;
+  --accent: #228B22;
+  --accent-hover: #1a7a1a;
+  --accent-soft: rgba(34,139,34,0.12);
+  --accent-text: #228B22;
   --admin-accent: #d97706;
   --admin-accent-soft: rgba(217,119,6,0.12);
   --danger: #e23738;
@@ -95,8 +95,8 @@
   --btn-secondary-border: #e2e2ea;
   --gradient-hero-from: #f5f5fa;
   --gradient-hero-to: #ffffff;
-  --gradient-title-from: #7364db;
-  --gradient-title-to: #9b8ef0;
+  --gradient-title-from: #228B22;
+  --gradient-title-to: #3cb043;
   --superadmin-soft: rgba(226,55,56,0.1);
   --superadmin-text: #e23738;
   --shadow: 0 1px 3px rgba(0,0,0,0.08);
@@ -116,10 +116,10 @@
   --text-body: #a9a9b7;
   --text-secondary: #8b8b93;
   --text-muted: #64646f;
-  --accent: #7364db;
-  --accent-hover: #8578e5;
-  --accent-soft: rgba(115,100,219,0.19);
-  --accent-text: #9b8ef0;
+  --accent: #228B22;
+  --accent-hover: #3cb043;
+  --accent-soft: rgba(34,139,34,0.19);
+  --accent-text: #3cb043;
   --admin-accent: #f59e0b;
   --admin-accent-soft: rgba(245,158,11,0.19);
   --danger: #e23738;
@@ -135,8 +135,8 @@
   --btn-secondary-border: #313442;
   --gradient-hero-from: #1f2128;
   --gradient-hero-to: #0f0f12;
-  --gradient-title-from: #7364db;
-  --gradient-title-to: #9b8ef0;
+  --gradient-title-from: #228B22;
+  --gradient-title-to: #3cb043;
   --superadmin-soft: rgba(226,55,56,0.19);
   --superadmin-text: #f87171;
   --shadow: 0 1px 3px rgba(0,0,0,0.4);

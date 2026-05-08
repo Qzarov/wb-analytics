@@ -527,7 +527,7 @@ type ChartMetric = 'revenue' | 'orders' | 'returns' | 'stock' | 'avg_rating' | '
 const chartMetric = ref<ChartMetric>('revenue')
 
 const chartMetrics: { key: ChartMetric; label: string; color: string }[] = [
-  { key: 'revenue', label: 'Выручка', color: '#6366f1' },
+  { key: 'revenue', label: 'Выручка', color: '#228B22' },
   { key: 'orders', label: 'Заказы', color: '#22c55e' },
   { key: 'returns', label: 'Возвраты', color: '#ef4444' },
   { key: 'stock', label: 'Остатки', color: '#3b82f6' },
@@ -1510,7 +1510,7 @@ onMounted(async () => {
 }
 .frox-sentiment-positive { background: rgba(80, 209, 178, 0.15); color: var(--green-accent); }
 .frox-sentiment-negative { background: rgba(226, 55, 56, 0.15); color: var(--red-accent); }
-.frox-sentiment-neutral { background: rgba(115, 100, 219, 0.15); color: var(--color-brands); }
+.frox-sentiment-neutral { background: rgba(34, 139, 34, 0.15); color: var(--color-brands); }
 
 /* Alerts */
 .frox-alert {
@@ -1547,7 +1547,7 @@ onMounted(async () => {
   font-weight: 700;
   text-transform: uppercase;
 }
-.frox-report-daily { background: rgba(115, 100, 219, 0.12); color: var(--color-brands); }
+.frox-report-daily { background: rgba(34, 139, 34, 0.12); color: var(--color-brands); }
 .frox-report-weekly { background: rgba(80, 209, 178, 0.12); color: var(--green-accent); }
 
 .frox-status { font-size: 12px; font-weight: 600; }
