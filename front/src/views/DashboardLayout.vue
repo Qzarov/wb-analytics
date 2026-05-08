@@ -169,18 +169,6 @@ watch(() => route.path, () => {
         </template>
       </nav>
 
-      <!-- Bottom controls -->
-      <div class="frox-sidebar-bottom">
-        <div class="frox-theme-toggle">
-          <button class="frox-theme-btn" :class="{ active: theme.current === 'dark' }" @click="toggleTheme" :title="theme.current === 'dark' ? 'Светлая тема' : 'Тёмная тема'">
-            <Moon v-if="theme.current !== 'dark'" :size="16" />
-            <Sun v-if="theme.current === 'dark'" :size="16" />
-          </button>
-          <span v-if="!collapsed" class="text-desc text-gray-500 dark:text-gray-dark-500">
-            {{ theme.current === 'dark' ? 'Тёмная' : 'Светлая' }}
-          </span>
-        </div>
-      </div>
     </aside>
 
     <!-- Header -->
@@ -198,6 +186,12 @@ watch(() => route.path, () => {
       </div>
 
       <div class="frox-header-right">
+        <!-- Theme toggle -->
+        <button class="frox-header-icon" @click="toggleTheme" :title="theme.current === 'dark' ? 'Светлая тема' : 'Тёмная тема'">
+          <Moon v-if="theme.current !== 'dark'" :size="20" />
+          <Sun v-if="theme.current === 'dark'" :size="20" />
+        </button>
+
         <!-- Notifications placeholder -->
         <button class="frox-header-icon">
           <div class="relative">
@@ -378,42 +372,6 @@ watch(() => route.path, () => {
   justify-content: center;
   padding: 12px;
 }
-
-/* Bottom controls */
-.frox-sidebar-bottom {
-  margin-top: auto;
-  padding-top: 16px;
-}
-.frox-theme-toggle {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 8px 12px;
-  border-radius: 10px;
-  background: var(--gray-100);
-}
-.dark .frox-theme-toggle { background: var(--dark-gray-200); }
-.frox-collapsed .frox-theme-toggle { justify-content: center; padding: 10px; }
-
-.frox-theme-btn {
-  width: 32px;
-  height: 32px;
-  border-radius: 8px;
-  background: var(--neutral-bg);
-  border: 1px solid var(--neutral-accent);
-  display: grid;
-  place-items: center;
-  cursor: pointer;
-  color: var(--gray-500);
-  transition: all 0.2s;
-  flex-shrink: 0;
-}
-.dark .frox-theme-btn {
-  background: var(--dark-neutral-bg);
-  border-color: var(--dark-neutral-border);
-  color: var(--dark-gray-500);
-}
-.frox-theme-btn:hover { border-color: var(--color-brands); color: var(--color-brands); }
 
 /* Header */
 .frox-header {
