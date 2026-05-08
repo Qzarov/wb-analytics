@@ -2,7 +2,7 @@
 import { computed } from 'vue'
 import { RouterView, RouterLink, useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
-import { useThemeStore, THEMES } from '@/stores/theme'
+import { useThemeStore } from '@/stores/theme'
 
 const auth = useAuthStore()
 const theme = useThemeStore()
@@ -58,16 +58,9 @@ function logout() {
 
             <span class="nav-divider"></span>
 
-            <div class="theme-switcher">
-              <button
-                v-for="t in THEMES"
-                :key="t.id"
-                class="theme-btn"
-                :class="{ active: theme.current === t.id, [t.id]: true }"
-                :title="t.label"
-                @click="theme.set(t.id)"
-              ></button>
-            </div>
+            <button class="theme-toggle" @click="theme.toggle()" :title="theme.current === 'dark' ? 'Светлая тема' : 'Тёмная тема'">
+              {{ theme.current === 'dark' ? '☀️' : '🌙' }}
+            </button>
 
             <template v-if="auth.isAuth">
               <RouterLink to="/profile" class="nav-user">{{ auth.user?.name }}</RouterLink>
@@ -161,29 +154,19 @@ function logout() {
   border-color: var(--danger);
   color: var(--danger);
 }
-.theme-switcher {
-  display: flex;
-  gap: 6px;
-  align-items: center;
-}
-.theme-btn {
-  width: 18px;
-  height: 18px;
-  border-radius: 50%;
-  border: 2px solid var(--border);
+.theme-toggle {
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0.25rem 0.5rem;
   cursor: pointer;
+  font-size: 1rem;
+  line-height: 1;
   transition: all 0.2s;
-  padding: 0;
 }
-.theme-btn.active {
+.theme-toggle:hover {
   border-color: var(--accent);
-  box-shadow: 0 0 0 2px var(--accent-soft);
-  transform: scale(1.15);
 }
-.theme-btn.dark-purple { background: #7c3aed; }
-.theme-btn.dark-blue { background: #3b82f6; }
-.theme-btn.light-green { background: #16a34a; }
-.theme-btn.light-gray { background: #a3a3a3; }
 .main {
   min-height: calc(100vh - 64px - 60px);
 }

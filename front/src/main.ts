@@ -6,7 +6,9 @@ import { useAuthStore } from './stores/auth'
 import './assets/main.css'
 
 const saved = localStorage.getItem('theme')
-document.documentElement.setAttribute('data-theme', saved || import.meta.env.VITE_DEFAULT_THEME || 'dark-purple')
+const theme = saved === 'light' ? 'light' : saved === 'dark' ? 'dark' : (import.meta.env.VITE_DEFAULT_THEME === 'light' ? 'light' : 'dark')
+document.documentElement.classList.toggle('dark', theme === 'dark')
+document.documentElement.setAttribute('data-theme', theme)
 
 if (import.meta.env.DEV) document.title = '(dev) ' + document.title
 

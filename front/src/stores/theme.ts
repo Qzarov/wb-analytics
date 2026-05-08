@@ -1,24 +1,21 @@
 import { defineStore } from 'pinia'
 import { ref, watch } from 'vue'
 
-export type ThemeId = 'dark-purple' | 'dark-blue' | 'light-green' | 'light-gray'
-
-export const THEMES: { id: ThemeId; label: string }[] = [
-  { id: 'dark-purple', label: 'Dark Purple' },
-  { id: 'dark-blue', label: 'Dark Blue' },
-  { id: 'light-gray', label: 'Light Gray' },
-]
+export type ThemeId = 'light' | 'dark'
 
 const DEFAULT_THEME: ThemeId =
-  (import.meta.env.VITE_DEFAULT_THEME as ThemeId) || 'dark-purple'
+  (import.meta.env.VITE_DEFAULT_THEME as ThemeId) === 'light' ? 'light' : 'dark'
 
 function applyTheme(id: ThemeId) {
-  document.documentElement.setAttribute('data-theme', id)
+  const el = document.documentElement
+  el.classList.toggle('dark', id === 'dark')
+  el.setAttribute('data-theme', id)
 }
 
 export const useThemeStore = defineStore('theme', () => {
-  const saved = localStorage.getItem('theme') as ThemeId | null
-  const current = ref<ThemeId>(saved && THEMES.some(t => t.id === saved) ? saved : DEFAULT_THEME)
+  const raw = localStorage.getItem('theme')
+  const initial = raw === 'light' ? 'light' : raw === 'dark' ? 'dark' : DEFAULT_THEME
+  const current = ref<ThemeId>(initial)
 
   applyTheme(current.value)
 
@@ -27,9 +24,13 @@ export const useThemeStore = defineStore('theme', () => {
     applyTheme(v)
   })
 
+  function toggle() {
+    current.value = current.value === 'dark' ? 'light' : 'dark'
+  }
+
   function set(id: ThemeId) {
     current.value = id
   }
 
-  return { current, set }
+  return { current, toggle, set }
 })

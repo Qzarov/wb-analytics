@@ -2,6 +2,7 @@
 import { ref, computed, watch } from 'vue'
 import { RouterView, RouterLink, useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
+import { useThemeStore } from '@/stores/theme'
 import {
   LayoutDashboard,
   MessageSquareText,
@@ -16,17 +17,16 @@ import {
   ChevronLeft,
   ChevronRight,
   LogOut,
-  User,
   ShieldCheck,
   Package,
 } from 'lucide-vue-next'
 
 const auth = useAuthStore()
+const theme = useThemeStore()
 const route = useRoute()
 const router = useRouter()
 
 const collapsed = ref(false)
-const isDark = ref(document.documentElement.classList.contains('dark'))
 const searchQuery = ref('')
 
 const currentTab = computed(() => {
@@ -48,9 +48,7 @@ function goTab(tabName: string) {
 }
 
 function toggleTheme() {
-  isDark.value = !isDark.value
-  document.documentElement.classList.toggle('dark', isDark.value)
-  localStorage.setItem('frox-dark', isDark.value ? '1' : '0')
+  theme.toggle()
 }
 
 function logout() {
@@ -174,12 +172,12 @@ watch(() => route.path, () => {
       <!-- Bottom controls -->
       <div class="frox-sidebar-bottom">
         <div class="frox-theme-toggle">
-          <button class="frox-theme-btn" :class="{ active: isDark }" @click="toggleTheme" :title="isDark ? 'Светлая тема' : 'Тёмная тема'">
-            <Moon v-if="!isDark" :size="16" />
-            <Sun v-if="isDark" :size="16" />
+          <button class="frox-theme-btn" :class="{ active: theme.current === 'dark' }" @click="toggleTheme" :title="theme.current === 'dark' ? 'Светлая тема' : 'Тёмная тема'">
+            <Moon v-if="theme.current !== 'dark'" :size="16" />
+            <Sun v-if="theme.current === 'dark'" :size="16" />
           </button>
           <span v-if="!collapsed" class="text-desc text-gray-500 dark:text-gray-dark-500">
-            {{ isDark ? 'Тёмная' : 'Светлая' }}
+            {{ theme.current === 'dark' ? 'Тёмная' : 'Светлая' }}
           </span>
         </div>
       </div>
