@@ -1,5 +1,5 @@
 import { Router } from 'express'
-import { getAllUsers, findUserById, updateUser, deleteUser, findPlanById, assignPlan, removePlan, addCredits } from '../db.js'
+import { getAllUsers, findUserById, updateUser, deleteUser, findPlanById, assignPlan, removePlan, addCredits, getAdminNotes, createAdminNote, deleteAdminNote } from '../db.js'
 
 const router = Router()
 
@@ -112,6 +112,40 @@ router.post('/:id/credits', (req, res) => {
   const user = addCredits(target.id, amount)!
   const { password, ...safe } = user
   res.json(safe)
+})
+
+// Admin notes
+router.get('/:id/notes', (req, res) => {
+  const target = findUserById(Number(req.params.id))
+  if (!target) {
+    res.status(404).json({ error: 'User not found' })
+    return
+  }
+  res.json(getAdminNotes(target.id))
+})
+
+router.post('/:id/notes', (req, res) => {
+  const { text } = req.body
+  if (!text || typeof text !== 'string' || !text.trim()) {
+    res.status(400).json({ error: 'text is required' })
+    return
+  }
+  const target = findUserById(Number(req.params.id))
+  if (!target) {
+    res.status(404).json({ error: 'User not found' })
+    return
+  }
+  const note = createAdminNote(target.id, req.user!.id, text.trim())
+  res.json(note)
+})
+
+router.delete('/:id/notes/:noteId', (req, res) => {
+  const deleted = deleteAdminNote(Number(req.params.noteId))
+  if (!deleted) {
+    res.status(404).json({ error: 'Note not found' })
+    return
+  }
+  res.json({ deleted: true })
 })
 
 export default router
