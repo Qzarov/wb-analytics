@@ -294,6 +294,19 @@ export const api = {
 
   getWbReport: (id: number) => request<any>(`/wb/reports/${id}`),
 
+  // --- Admin Notes ---
+  getUserNotes: (userId: number) =>
+    request<{ id: number; user_id: number; author_id: number; author_name: string; text: string; created_at: string }[]>(`/users/${userId}/notes`),
+
+  addUserNote: (userId: number, text: string) =>
+    request<{ id: number; user_id: number; author_id: number; author_name: string; text: string; created_at: string }>(`/users/${userId}/notes`, {
+      method: 'POST',
+      body: JSON.stringify({ text }),
+    }),
+
+  deleteUserNote: (userId: number, noteId: number) =>
+    request<{ deleted: boolean }>(`/users/${userId}/notes/${noteId}`, { method: 'DELETE' }),
+
   // --- Admin Settings ---
   getAdminSettings: () => request<Record<string, string>>('/admin/settings'),
 

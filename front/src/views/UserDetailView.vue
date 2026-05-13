@@ -3,7 +3,7 @@ import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { api, type User, type Plan } from '@/api'
 import { useAuthStore } from '@/stores/auth'
-import { ArrowLeft, Save, Trash2, Check, AlertCircle, Plus, Minus } from 'lucide-vue-next'
+import { ArrowLeft, Save, Trash2, Check, AlertCircle, Plus, Minus, MessageSquare, Send, X } from 'lucide-vue-next'
 
 const route = useRoute()
 const router = useRouter()
@@ -28,6 +28,19 @@ const ALL_PRODUCTS = [
 const selectedPlanId = ref<number | ''>('')
 const creditsToAdd = ref(0)
 
+// Notes
+interface AdminNote {
+  id: number
+  user_id: number
+  author_id: number
+  author_name: string
+  text: string
+  created_at: string
+}
+const notes = ref<AdminNote[]>([])
+const newNoteText = ref('')
+const noteSaving = ref(false)
+
 const currentPlan = computed(() => user.value?.plan_id ? plans.value.find(p => p.id === user.value!.plan_id) : null)
 const planExpired = computed(() => {
   if (!user.value?.plan_expires_at) return false
@@ -36,8 +49,8 @@ const planExpired = computed(() => {
 
 onMounted(async () => {
   try {
-    const [u, p] = await Promise.all([api.getUser(userId), api.getPlans()])
-    user.value = u; plans.value = p
+    const [u, p, n] = await Promise.all([api.getUser(userId), api.getPlans(), api.getUserNotes(userId)])
+    user.value = u; plans.value = p; notes.value = n
     editName.value = u.name; editRole.value = u.role; editCredits.value = u.credits; editAdvancedSettings.value = Boolean(u.advanced_settings)
     try {
       const ids = JSON.parse(u.visible_products || '[]') as string[]
@@ -89,8 +102,31 @@ async function remove() {
   catch (e: any) { error.value = e.message }
 }
 
+async function addNote() {
+  if (!newNoteText.value.trim()) return
+  noteSaving.value = true
+  try {
+    const note = await api.addUserNote(userId, newNoteText.value.trim())
+    notes.value.unshift(note)
+    newNoteText.value = ''
+  } catch (e: any) { error.value = e.message }
+  finally { noteSaving.value = false }
+}
+
+async function removeNote(noteId: number) {
+  try {
+    await api.deleteUserNote(userId, noteId)
+    notes.value = notes.value.filter(n => n.id !== noteId)
+  } catch (e: any) { error.value = e.message }
+}
+
 function formatDate(iso: string | null | undefined) {
   if (!iso) return '—'; return new Date(iso).toLocaleDateString('ru-RU')
+}
+
+function formatDateTime(iso: string) {
+  const d = new Date(iso)
+  return d.toLocaleDateString('ru-RU') + ' ' + d.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })
 }
 </script>
 
@@ -218,6 +254,40 @@ function formatDate(iso: string | null | undefined) {
               </button>
             </div>
             <span class="frox-hint">Введите отрицательное число для списания</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Admin Notes -->
+      <div class="frox-card mt-5">
+        <h3 class="frox-card-title">
+          <MessageSquare :size="16" class="inline -mt-0.5" />
+          Заметки администраторов
+        </h3>
+        <div class="frox-note-form">
+          <textarea
+            v-model="newNoteText"
+            placeholder="Добавить заметку..."
+            class="frox-input frox-textarea"
+            rows="2"
+            @keydown.ctrl.enter="addNote"
+          ></textarea>
+          <button class="frox-btn frox-btn-brand frox-btn-sm" :disabled="!newNoteText.trim() || noteSaving" @click="addNote">
+            <Send :size="14" />
+            {{ noteSaving ? '...' : 'Добавить' }}
+          </button>
+        </div>
+        <div v-if="notes.length === 0" class="frox-empty-sm mt-3">Заметок пока нет</div>
+        <div v-else class="frox-notes-list">
+          <div v-for="note in notes" :key="note.id" class="frox-note">
+            <div class="frox-note-header">
+              <span class="frox-note-author">{{ note.author_name }}</span>
+              <span class="frox-note-date">{{ formatDateTime(note.created_at) }}</span>
+              <button class="frox-note-delete" @click="removeNote(note.id)" title="Удалить">
+                <X :size="14" />
+              </button>
+            </div>
+            <div class="frox-note-text">{{ note.text }}</div>
           </div>
         </div>
       </div>
@@ -445,6 +515,77 @@ function formatDate(iso: string | null | undefined) {
   font-size: 14px;
 }
 .dark .frox-empty { color: var(--dark-gray-400); }
+
+/* Notes */
+.mt-5 { margin-top: 20px; }
+.mt-3 { margin-top: 12px; }
+
+.frox-note-form {
+  display: flex;
+  gap: 8px;
+  align-items: flex-end;
+}
+.frox-note-form .frox-textarea {
+  flex: 1;
+  resize: vertical;
+  min-height: 60px;
+  font-family: inherit;
+}
+.frox-notes-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 16px;
+}
+.frox-note {
+  background: var(--gray-100);
+  border: 1px solid var(--neutral-accent);
+  border-radius: 10px;
+  padding: 12px 16px;
+}
+.dark .frox-note {
+  background: var(--dark-gray-100);
+  border-color: var(--dark-neutral-border);
+}
+.frox-note-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+.frox-note-author {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--gray-800);
+}
+.dark .frox-note-author { color: var(--dark-gray-800); }
+.frox-note-date {
+  font-size: 12px;
+  color: var(--gray-400);
+}
+.dark .frox-note-date { color: var(--dark-gray-400); }
+.frox-note-delete {
+  margin-left: auto;
+  background: none;
+  border: none;
+  color: var(--gray-400);
+  cursor: pointer;
+  padding: 2px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  transition: color 0.15s;
+}
+.frox-note-delete:hover { color: var(--red-accent); }
+.dark .frox-note-delete { color: var(--dark-gray-400); }
+.dark .frox-note-delete:hover { color: var(--red-accent); }
+.frox-note-text {
+  font-size: 14px;
+  color: var(--gray-1100);
+  white-space: pre-wrap;
+  line-height: 1.5;
+}
+.dark .frox-note-text { color: var(--dark-gray-1100); }
 
 /* Transitions */
 .toast-enter-active, .toast-leave-active { transition: all 0.3s; }

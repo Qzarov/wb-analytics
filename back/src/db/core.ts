@@ -58,6 +58,16 @@ db.exec(`
   )
 `)
 
+db.exec(`
+  CREATE TABLE IF NOT EXISTS admin_notes (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    author_id  INTEGER NOT NULL REFERENCES users(id),
+    text       TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  )
+`)
+
 // ===================== MIGRATIONS =====================
 
 try { db.exec('ALTER TABLE plans ADD COLUMN description TEXT NOT NULL DEFAULT ""') } catch {}
@@ -213,6 +223,33 @@ export function decrementCredits(id: number): number {
   db.prepare('UPDATE users SET credits = credits - 1 WHERE id = ? AND credits > 0').run(id)
   const user = findUserById(id)
   return user?.credits ?? 0
+}
+
+// ===================== ADMIN NOTES HELPERS =====================
+
+export interface AdminNoteRow {
+  id: number
+  user_id: number
+  author_id: number
+  author_name?: string
+  text: string
+  created_at: string
+}
+
+export function getAdminNotes(userId: number): AdminNoteRow[] {
+  return db.prepare(
+    'SELECT n.*, u.name as author_name FROM admin_notes n LEFT JOIN users u ON u.id = n.author_id WHERE n.user_id = ? ORDER BY n.created_at DESC'
+  ).all(userId) as AdminNoteRow[]
+}
+
+export function createAdminNote(userId: number, authorId: number, text: string): AdminNoteRow {
+  const result = db.prepare('INSERT INTO admin_notes (user_id, author_id, text) VALUES (?, ?, ?)').run(userId, authorId, text)
+  const note = db.prepare('SELECT n.*, u.name as author_name FROM admin_notes n LEFT JOIN users u ON u.id = n.author_id WHERE n.id = ?').get(result.lastInsertRowid) as AdminNoteRow
+  return note
+}
+
+export function deleteAdminNote(noteId: number): boolean {
+  return db.prepare('DELETE FROM admin_notes WHERE id = ?').run(noteId).changes > 0
 }
 
 // ===================== PAYMENT HELPERS =====================
